@@ -4,7 +4,7 @@ import os
 import hashlib
 import base64
 import aiofiles
-import magic
+# import magic  # Removed for now
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from PyPDF2 import PdfReader
