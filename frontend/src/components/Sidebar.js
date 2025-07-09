@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useAquila } from '../contexts/AquilaContext';
+import React, { useState } from 'react';
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -11,60 +10,11 @@ import {
 } from 'lucide-react';
 
 const Sidebar = () => {
-  const { 
-    dataModules, 
-    currentDataModule, 
-    setCurrentDataModule,
-    documents,
-    icns 
-  } = useAquila();
-  
-  const [selectedIndex, setSelectedIndex] = useState(0);
   const [expandedSections, setExpandedSections] = useState({
     dataModules: true,
     documents: false,
     icns: false
   });
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.altKey && event.key === 'ArrowLeft') {
-        event.preventDefault();
-        navigateDataModule(-1);
-      } else if (event.altKey && event.key === 'ArrowRight') {
-        event.preventDefault();
-        navigateDataModule(1);
-      } else if (event.key === 'ArrowUp' && document.activeElement === document.body) {
-        event.preventDefault();
-        navigateList(-1);
-      } else if (event.key === 'ArrowDown' && document.activeElement === document.body) {
-        event.preventDefault();
-        navigateList(1);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [dataModules, selectedIndex]);
-
-  const navigateDataModule = (direction) => {
-    if (dataModules.length === 0) return;
-    
-    const currentIndex = dataModules.findIndex(dm => dm.dmc === currentDataModule?.dmc);
-    const newIndex = Math.max(0, Math.min(dataModules.length - 1, currentIndex + direction));
-    
-    setCurrentDataModule(dataModules[newIndex]);
-    setSelectedIndex(newIndex);
-  };
-
-  const navigateList = (direction) => {
-    if (dataModules.length === 0) return;
-    
-    const newIndex = Math.max(0, Math.min(dataModules.length - 1, selectedIndex + direction));
-    setSelectedIndex(newIndex);
-    setCurrentDataModule(dataModules[newIndex]);
-  };
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -72,6 +22,22 @@ const Sidebar = () => {
       [section]: !prev[section]
     }));
   };
+
+  // Sample data for demonstration
+  const sampleDataModules = [
+    { dmc: 'DMC-AQUILA-00-000-00-00-00-00-000-A-A-00-00-00-00', title: 'Sample Procedure', dm_type: 'PROC', validation_status: 'green', info_variant: '00' },
+    { dmc: 'DMC-AQUILA-00-000-00-00-00-00-000-A-A-00-00-01-01', title: 'Sample Description', dm_type: 'DESC', validation_status: 'amber', info_variant: '01' }
+  ];
+
+  const sampleDocuments = [
+    { id: '1', filename: 'maintenance_manual.pdf', file_size: 2048000, processing_status: 'completed' },
+    { id: '2', filename: 'technical_drawing.jpg', file_size: 1024000, processing_status: 'pending' }
+  ];
+
+  const sampleICNs = [
+    { icn_id: 'ICN-001', filename: 'diagram_001.jpg', width: 800, height: 600 },
+    { icn_id: 'ICN-002', filename: 'schematic_002.png', width: 1200, height: 900 }
+  ];
 
   const getLEDClassName = (status) => {
     switch (status) {
@@ -119,22 +85,16 @@ const Sidebar = () => {
             <div className="flex items-center gap-2">
               {expandedSections.dataModules ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               <FileText size={16} />
-              <span className="font-medium">Data Modules ({dataModules.length})</span>
+              <span className="font-medium">Data Modules ({sampleDataModules.length})</span>
             </div>
           </button>
 
           {expandedSections.dataModules && (
             <div className="ml-6 mt-2 space-y-1">
-              {dataModules.map((dm, index) => (
+              {sampleDataModules.map((dm, index) => (
                 <div
                   key={dm.dmc}
-                  className={`aquila-tree-item cursor-pointer ${
-                    index === selectedIndex ? 'selected' : ''
-                  }`}
-                  onClick={() => {
-                    setCurrentDataModule(dm);
-                    setSelectedIndex(index);
-                  }}
+                  className="aquila-tree-item cursor-pointer"
                 >
                   <div className="flex items-center gap-2 flex-1">
                     <span className="text-sm">{getDMTypeIcon(dm.dm_type)}</span>
@@ -167,13 +127,13 @@ const Sidebar = () => {
             <div className="flex items-center gap-2">
               {expandedSections.documents ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               <FileText size={16} />
-              <span className="font-medium">Documents ({documents.length})</span>
+              <span className="font-medium">Documents ({sampleDocuments.length})</span>
             </div>
           </button>
 
           {expandedSections.documents && (
             <div className="ml-6 mt-2 space-y-1">
-              {documents.map((doc) => (
+              {sampleDocuments.map((doc) => (
                 <div
                   key={doc.id}
                   className="aquila-tree-item cursor-pointer"
@@ -205,13 +165,13 @@ const Sidebar = () => {
             <div className="flex items-center gap-2">
               {expandedSections.icns ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               <Image size={16} />
-              <span className="font-medium">ICNs ({icns.length})</span>
+              <span className="font-medium">ICNs ({sampleICNs.length})</span>
             </div>
           </button>
 
           {expandedSections.icns && (
             <div className="ml-6 mt-2 space-y-1">
-              {icns.map((icn) => (
+              {sampleICNs.map((icn) => (
                 <div
                   key={icn.icn_id}
                   className="aquila-tree-item cursor-pointer"
@@ -236,7 +196,7 @@ const Sidebar = () => {
       {/* Footer */}
       <div className="aquila-status-bar">
         <div className="flex items-center gap-2">
-          <span className="text-xs">Total: {dataModules.length} DMs</span>
+          <span className="text-xs">Total: {sampleDataModules.length} DMs</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">v1.0.0</span>
