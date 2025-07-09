@@ -2,16 +2,313 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+/* Base styles for dark theme */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-aquila-bg text-aquila-text font-ui;
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
-        "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-        "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  
+  code {
+    @apply font-mono;
+  }
+  
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-aquila-surface;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-aquila-border rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-aquila-hover;
+  }
 }
 
-code {
-    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-        monospace;
+/* Custom component styles */
+@layer components {
+  .aquila-toolbar {
+    @apply bg-aquila-surface border-b border-aquila-border px-4 py-2 flex items-center justify-between;
+    height: 60px;
+  }
+  
+  .aquila-sidebar {
+    @apply bg-aquila-surface border-r border-aquila-border;
+    width: 300px;
+  }
+  
+  .aquila-main-grid {
+    @apply grid grid-cols-3 grid-rows-2 gap-2 p-2;
+    height: calc(100vh - 60px);
+  }
+  
+  .aquila-panel {
+    @apply bg-aquila-surface border border-aquila-border rounded-lg overflow-hidden;
+  }
+  
+  .aquila-panel-header {
+    @apply bg-aquila-hover px-4 py-2 border-b border-aquila-border flex items-center justify-between;
+  }
+  
+  .aquila-panel-content {
+    @apply p-4 h-full overflow-auto;
+  }
+  
+  .aquila-button {
+    @apply bg-aquila-cyan hover:bg-aquila-cyan-dark text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2;
+  }
+  
+  .aquila-button-secondary {
+    @apply bg-aquila-hover hover:bg-aquila-border text-aquila-text px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2;
+  }
+  
+  .aquila-input {
+    @apply bg-aquila-bg border border-aquila-border rounded-lg px-3 py-2 text-aquila-text placeholder-aquila-text-muted focus:outline-none focus:ring-2 focus:ring-aquila-cyan;
+  }
+  
+  .aquila-select {
+    @apply bg-aquila-bg border border-aquila-border rounded-lg px-3 py-2 text-aquila-text focus:outline-none focus:ring-2 focus:ring-aquila-cyan;
+  }
+  
+  .aquila-led {
+    @apply w-3 h-3 rounded-full;
+  }
+  
+  .aquila-led-green {
+    @apply bg-aquila-led-green shadow-lg;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+  }
+  
+  .aquila-led-amber {
+    @apply bg-aquila-led-amber shadow-lg;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+  }
+  
+  .aquila-led-red {
+    @apply bg-aquila-led-red shadow-lg;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  }
+  
+  .aquila-led-blue {
+    @apply bg-aquila-led-blue shadow-lg;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  }
+  
+  .aquila-card {
+    @apply bg-aquila-surface border border-aquila-border rounded-lg p-4 hover:border-aquila-hover transition-colors duration-200;
+  }
+  
+  .aquila-modal {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+  }
+  
+  .aquila-modal-content {
+    @apply bg-aquila-surface border border-aquila-border rounded-lg p-6 max-w-2xl w-full mx-4;
+  }
+  
+  .aquila-tooltip {
+    @apply bg-aquila-bg border border-aquila-border rounded-lg px-2 py-1 text-sm text-aquila-text shadow-lg;
+  }
+  
+  .aquila-dropdown {
+    @apply bg-aquila-surface border border-aquila-border rounded-lg shadow-lg py-2 min-w-48;
+  }
+  
+  .aquila-dropdown-item {
+    @apply px-4 py-2 hover:bg-aquila-hover cursor-pointer transition-colors duration-200;
+  }
+  
+  .aquila-code-editor {
+    @apply bg-aquila-bg border border-aquila-border rounded-lg overflow-hidden;
+  }
+  
+  .aquila-tree-item {
+    @apply flex items-center gap-2 px-2 py-1 hover:bg-aquila-hover cursor-pointer rounded;
+  }
+  
+  .aquila-tree-item.selected {
+    @apply bg-aquila-cyan text-white;
+  }
+  
+  .aquila-status-bar {
+    @apply bg-aquila-hover border-t border-aquila-border px-4 py-2 flex items-center justify-between text-sm;
+  }
+  
+  .aquila-progress-bar {
+    @apply bg-aquila-bg rounded-full h-2 overflow-hidden;
+  }
+  
+  .aquila-progress-fill {
+    @apply bg-aquila-cyan h-full transition-all duration-300;
+  }
+  
+  .aquila-spinner {
+    @apply animate-spin rounded-full border-2 border-aquila-border border-t-aquila-cyan;
+  }
+  
+  .aquila-badge {
+    @apply bg-aquila-cyan text-white px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .aquila-chip {
+    @apply bg-aquila-hover text-aquila-text px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .aquila-divider {
+    @apply border-t border-aquila-border my-4;
+  }
+  
+  .aquila-icon-button {
+    @apply p-2 rounded-lg hover:bg-aquila-hover transition-colors duration-200 flex items-center justify-center;
+  }
+  
+  .aquila-tab {
+    @apply px-4 py-2 border-b-2 border-transparent hover:border-aquila-cyan cursor-pointer transition-colors duration-200;
+  }
+  
+  .aquila-tab.active {
+    @apply border-aquila-cyan text-aquila-cyan;
+  }
+  
+  .aquila-table {
+    @apply w-full border-collapse;
+  }
+  
+  .aquila-table th {
+    @apply bg-aquila-hover text-left px-4 py-2 border-b border-aquila-border;
+  }
+  
+  .aquila-table td {
+    @apply px-4 py-2 border-b border-aquila-border;
+  }
+  
+  .aquila-table tr:hover {
+    @apply bg-aquila-hover;
+  }
+  
+  .aquila-hotspot {
+    @apply absolute border-2 border-aquila-cyan bg-aquila-cyan bg-opacity-20 cursor-pointer;
+  }
+  
+  .aquila-hotspot:hover {
+    @apply bg-opacity-40 scale-105;
+  }
+  
+  .aquila-canvas {
+    @apply border border-aquila-border rounded-lg overflow-hidden;
+  }
+  
+  .aquila-grid {
+    @apply grid gap-4 p-4;
+  }
+  
+  .aquila-flex {
+    @apply flex items-center gap-2;
+  }
+  
+  .aquila-text-primary {
+    @apply text-aquila-text;
+  }
+  
+  .aquila-text-secondary {
+    @apply text-aquila-text-muted;
+  }
+  
+  .aquila-text-accent {
+    @apply text-aquila-cyan;
+  }
+  
+  .aquila-border {
+    @apply border border-aquila-border;
+  }
+  
+  .aquila-shadow {
+    @apply shadow-lg;
+  }
+  
+  .aquila-hover {
+    @apply hover:bg-aquila-hover;
+  }
+  
+  .aquila-focus {
+    @apply focus:outline-none focus:ring-2 focus:ring-aquila-cyan;
+  }
+}
+
+/* Animation utilities */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+  
+  .animate-led-blink {
+    animation: ledBlink 1s ease-in-out infinite;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .aquila-led-green {
+    background-color: #00ff00;
+  }
+  
+  .aquila-led-amber {
+    background-color: #ffff00;
+  }
+  
+  .aquila-led-red {
+    background-color: #ff0000;
+  }
+  
+  .aquila-led-blue {
+    background-color: #0000ff;
+  }
+}
+
+/* Print styles */
+@media print {
+  .aquila-toolbar,
+  .aquila-sidebar {
+    display: none !important;
+  }
+  
+  .aquila-main-grid {
+    display: block !important;
+  }
+  
+  .aquila-panel {
+    page-break-inside: avoid;
+    border: 1px solid #000;
+    margin-bottom: 20px;
+  }
 }
