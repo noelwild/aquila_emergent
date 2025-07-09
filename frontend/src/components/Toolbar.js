@@ -11,7 +11,7 @@ import {
   FileText, 
   Cpu, 
   Download,
-  Publish
+  Send
 } from 'lucide-react';
 
 const Toolbar = () => {
