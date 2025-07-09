@@ -13,7 +13,7 @@ import BREXDesigner from './components/BREXDesigner';
 import PMBuilder from './components/PMBuilder';
 import AIProviderModal from './components/AIProviderModal';
 import PublishModal from './components/PublishModal';
-import { useAquila } from './contexts/AquilaContext';
+import AquilaContext from './contexts/AquilaContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -38,16 +38,9 @@ function App() {
 
 // Main application component
 function MainApp() {
-  const {
-    currentDocument,
-    currentDataModule,
-    dataModules,
-    globalLEDStatus,
-    showAIProviderModal,
-    showPublishModal,
-    setShowAIProviderModal,
-    setShowPublishModal
-  } = useAquila();
+  const [showAIProviderModal, setShowAIProviderModal] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [globalLEDStatus, setGlobalLEDStatus] = useState('green');
 
   return (
     <div className="flex flex-col h-screen">
