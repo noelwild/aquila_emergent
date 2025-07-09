@@ -1,7 +1,8 @@
-import React, { createContext, useContext } from 'react';
+import React from 'react';
+import { useContext } from 'react';
 
 // Create the context
-const AquilaContext = createContext();
+const AquilaContext = React.createContext();
 
 // Custom hook to use the context
 export const useAquila = () => {
