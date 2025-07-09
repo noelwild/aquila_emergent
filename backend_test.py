@@ -189,8 +189,7 @@ def test_ai_providers():
         # Test text processing with Anthropic
         response = requests.post(
             f"{API_BASE_URL}/test/text",
-            params={"task_type": "classify"},
-            json=SAMPLE_TEXT
+            params={"task_type": "classify", "text": SAMPLE_TEXT}
         )
         print_test_result("Anthropic Text Classification", response.status_code == 200, response.json())
     except Exception as e:
@@ -199,8 +198,7 @@ def test_ai_providers():
     try:
         response = requests.post(
             f"{API_BASE_URL}/test/vision",
-            params={"task_type": "caption"},
-            json=base64_image
+            params={"task_type": "caption", "image_data": base64_image}
         )
         print_test_result("Anthropic Vision Caption", response.status_code == 200, response.json())
     except Exception as e:
