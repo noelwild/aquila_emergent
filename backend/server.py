@@ -16,12 +16,12 @@ import io
 from datetime import datetime
 
 # Import models
-from models.base import SettingsModel, ProviderEnum, ValidationStatus
-from models.document import UploadedDocument, ICN, DataModule, ProcessingTask, PublicationModule
+from .models.base import SettingsModel, ProviderEnum, ValidationStatus
+from .models.document import UploadedDocument, ICN, DataModule, ProcessingTask, PublicationModule
 
 # Import services
-from services.document_service import DocumentService
-from ai_providers.provider_factory import ProviderFactory
+from .services.document_service import DocumentService
+from .ai_providers.provider_factory import ProviderFactory
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
