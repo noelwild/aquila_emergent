@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAquila } from '../contexts/AquilaContext';
 import { 
   Upload, 
   Trash2, 
@@ -16,41 +15,27 @@ import {
 
 const Toolbar = () => {
   const navigate = useNavigate();
-  const { 
-    globalLEDStatus, 
-    processing, 
-    setShowAIProviderModal, 
-    setShowPublishModal,
-    uploadDocument,
-    processDocument,
-    documents 
-  } = useAquila();
+  const [processing, setProcessing] = useState(false);
+  const [globalLEDStatus, setGlobalLEDStatus] = useState('green');
+  const [showAIProviderModal, setShowAIProviderModal] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
 
   const handleUpload = async (event) => {
     const files = Array.from(event.target.files);
-    for (const file of files) {
-      try {
-        const result = await uploadDocument(file);
-        console.log('Document uploaded:', result);
-      } catch (error) {
-        console.error('Upload failed:', error);
-      }
-    }
-    event.target.value = ''; // Reset file input
+    console.log('Files selected:', files);
+    // Handle file upload logic here
+    event.target.value = '';
   };
 
   const handleDelete = () => {
-    // Implement delete functionality
     console.log('Delete clicked');
   };
 
   const handleLock = () => {
-    // Implement lock functionality
     console.log('Lock clicked');
   };
 
   const handleDownload = () => {
-    // Implement download functionality
     console.log('Download clicked');
   };
 
