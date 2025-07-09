@@ -124,8 +124,7 @@ def test_ai_providers():
     try:
         response = requests.post(
             f"{API_BASE_URL}/test/text",
-            params={"task_type": "classify"},
-            json=SAMPLE_TEXT
+            params={"task_type": "classify", "text": SAMPLE_TEXT}
         )
         print_test_result("OpenAI Text Classification", response.status_code == 200, response.json())
     except Exception as e:
@@ -134,8 +133,7 @@ def test_ai_providers():
     try:
         response = requests.post(
             f"{API_BASE_URL}/test/text",
-            params={"task_type": "extract"},
-            json=SAMPLE_TEXT
+            params={"task_type": "extract", "text": SAMPLE_TEXT}
         )
         print_test_result("OpenAI Text Extraction", response.status_code == 200, response.json())
     except Exception as e:
@@ -144,8 +142,7 @@ def test_ai_providers():
     try:
         response = requests.post(
             f"{API_BASE_URL}/test/text",
-            params={"task_type": "rewrite"},
-            json=SAMPLE_TEXT
+            params={"task_type": "rewrite", "text": SAMPLE_TEXT}
         )
         print_test_result("OpenAI Text Rewrite", response.status_code == 200, response.json())
     except Exception as e:
