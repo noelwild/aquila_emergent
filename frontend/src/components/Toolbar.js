@@ -159,7 +159,7 @@ const Toolbar = () => {
           className="aquila-button"
           disabled={processing}
         >
-          <Publish size={16} />
+          <Send size={16} />
           <span>Publish</span>
         </button>
 
