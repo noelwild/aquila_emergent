@@ -39,7 +39,7 @@ reportlab>=4.0.4
 xmltodict>=0.13.0
 markdown>=3.5.0
 jinja2>=3.1.0
-uuid>=1.30
+
 hashlib2>=1.0.0
 base64>=0.1.1
 redis>=5.0.0
