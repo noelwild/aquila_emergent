@@ -47,7 +47,6 @@
     "react-tooltip": "^5.26.3",
     "react-loading-skeleton": "^3.3.1",
     "react-virtualized-auto-sizer": "^1.0.20",
-    "react-window-dynamic": "^2.0.2",
     "react-contextmenu": "^2.14.0",
     "react-hotkeys-hook": "^4.4.4",
     "use-debounce": "^10.0.0",
