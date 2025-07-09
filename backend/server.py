@@ -453,7 +453,7 @@ async def publish_publication_module(pm_code: str, publish_options: Dict[str, An
 async def test_text_provider(text: str, task_type: str = "classify"):
     """Test text provider."""
     try:
-        from ai_providers.base import TextProcessingRequest
+        from .ai_providers.base import TextProcessingRequest
         
         text_provider = ProviderFactory.create_text_provider()
         request = TextProcessingRequest(text=text, task_type=task_type)
