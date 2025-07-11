@@ -11,7 +11,10 @@ from PyPDF2 import PdfReader
 from pptx import Presentation
 from openpyxl import load_workbook
 from PIL import Image
+from docx import Document
+from pdf2image import convert_from_path
 import io
+import asyncio
 import uuid
 from datetime import datetime
 
@@ -93,8 +96,9 @@ class DocumentService:
     async def _extract_docx_text(self, file_path: Path) -> str:
         """Extract text from DOCX file."""
         try:
-            # Simple text extraction - would need python-docx for full implementation
-            return f"DOCX text extraction not implemented - {file_path.name}"
+            doc = await asyncio.to_thread(Document, str(file_path))
+            paragraphs = [p.text for p in doc.paragraphs if p.text]
+            return "\n".join(paragraphs)
         except Exception as e:
             print(f"Error extracting DOCX text: {str(e)}")
             return ""
@@ -151,9 +155,32 @@ class DocumentService:
     
     async def _extract_pdf_images(self, document: UploadedDocument) -> List[ICN]:
         """Extract images from PDF document."""
-        # This would require more sophisticated PDF processing
-        # For now, return empty list
-        return []
+        file_path = Path(document.file_path)
+        icns: List[ICN] = []
+        try:
+            pages = await asyncio.to_thread(convert_from_path, str(file_path))
+            for idx, img in enumerate(pages, start=1):
+                filename = f"{file_path.stem}_page{idx}.png"
+                out_path = self.icn_path / filename
+                img.save(out_path, format="PNG")
+                async with aiofiles.open(out_path, "rb") as f:
+                    data = await f.read()
+                sha256_hash = hashlib.sha256(data).hexdigest()
+                width, height = img.size
+                icns.append(
+                    ICN(
+                        filename=filename,
+                        file_path=str(out_path),
+                        sha256_hash=sha256_hash,
+                        mime_type="image/png",
+                        width=width,
+                        height=height,
+                    )
+                )
+            return icns
+        except Exception as e:
+            print(f"Error extracting PDF images: {str(e)}")
+            return []
     
     async def _process_single_image(self, document: UploadedDocument) -> List[ICN]:
         """Process a single image file."""

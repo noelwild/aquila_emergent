@@ -39,6 +39,8 @@ reportlab>=4.0.4
 xmltodict>=0.13.0
 markdown>=3.5.0
 jinja2>=3.1.0
+python-docx>=1.2.0
+pdf2image>=1.17.0
 
 
 
