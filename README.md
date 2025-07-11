@@ -104,7 +104,27 @@ The React application will open at `http://localhost:3000` and connect to the Fa
 Once the servers are running you can upload a document through the toolbar. The sidebar will list the uploaded file, at which point you can select it and click “Process.” The backend will extract text, analyze it with the configured provider, and generate new data modules. These modules show up in the sidebar and can be opened in the workspace. Use the data module viewer to inspect the generated content and run validation. The XML editor provides full markup access if you need to fix tags or add attributes. When you have multiple modules prepared, create a publication module from the sidebar and arrange the modules in a hierarchy. Clicking the publish button allows you to choose variants and output formats, after which a package is generated. Because this is a prototype the publishing action simply returns a success message, but the scaffolding is in place for connecting a more sophisticated export tool.
 
 ## Testing & Quality Assurance
-The repository includes an automated test suite covering the backend API. Tests reside in `backend_test.py` and use the pytest framework. Running `pytest -q` will execute all tests; however, you must install the `requests` package if it is not already present. The frontend also includes a set of React tests invoked via `yarn test --watchAll=false`, though they are minimal at present and require CRACO to be installed. A log of past test results is stored in `test_result.md`, which tracks working status for each major component. When adding new features you should update this log with your own status notes so that contributors understand what has been verified. Continuous integration is not configured, but the test suite can easily be hooked into a GitHub Actions workflow for pull request validation.
+The repository includes an automated test suite covering the backend API. Tests
+reside in `backend_test.py` and use the pytest framework. Install dependencies (including `requests`) with:
+
+```bash
+pip install -r backend/requirements.txt
+```
+
+After installing, run the backend tests:
+
+```bash
+pytest -q
+```
+
+The frontend also provides a minimal set of React tests. Install deps and run them with:
+
+```bash
+cd frontend && yarn install
+yarn test
+```
+
+A log of past test results is stored in `test_result.md`, which tracks working status for each major component.
 
 ## Security Considerations
 Aquila is designed for research and does not implement authentication or authorization out of the box. If you plan to run it in a production environment you should integrate user accounts and access controls. The data models include fields for security classification levels, and the interface exposes options for watermarking images, but these mechanisms rely on external policies for enforcement. Because the system interacts with external AI providers you should also be mindful of data privacy and API usage limits. Ensure that no sensitive data is sent to third-party services without proper consent. The local provider option exists specifically for environments where uploading data to the cloud is not permitted.
