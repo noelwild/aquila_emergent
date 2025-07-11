@@ -135,13 +135,7 @@ backend:
         agent: "testing"
         comment: "Successfully tested provider switching between OpenAI and Anthropic. Both providers are properly configured with the provided API keys. Text processing (classify, extract, rewrite) and vision processing (caption, objects, hotspots) endpoints are working correctly."
 
-  - task: "Document Processing Service"
-    implemented: true
-    working: true
-    file: "backend/services/document_service.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
+  - task: "true
     status_history:
       - working: true
         agent: "main"
@@ -352,7 +346,7 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: true
 
 test_plan:
@@ -430,3 +424,5 @@ agent_communication:
        - Creation, retrieval, and publishing of publication modules working correctly
 
     All backend APIs are functioning as expected with no major issues. The system successfully integrates with both OpenAI and Anthropic AI providers."
+  - agent: "main"
+    message: "Implemented DOCX text extraction with python-docx and PDF image extraction with pdf2image; added unit tests."
