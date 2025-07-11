@@ -120,7 +120,9 @@ function AquilaProvider({ children }) {
   const [processing, setProcessing] = useState(false);
   const [aiProviders, setAIProviders] = useState({
     text: 'openai',
-    vision: 'openai'
+    vision: 'openai',
+    text_model: 'gpt-4o-mini',
+    vision_model: 'gpt-4o-mini'
   });
 
   // Load initial data
@@ -232,12 +234,17 @@ function AquilaProvider({ children }) {
     }
   };
 
-  const updateAIProviders = async (textProvider, visionProvider) => {
+  const updateAIProviders = async (textProvider, visionProvider, textModel, visionModel) => {
     try {
       await axios.post(`${API}/providers/set`, null, {
-        params: { text_provider: textProvider, vision_provider: visionProvider }
+        params: {
+          text_provider: textProvider,
+          vision_provider: visionProvider,
+          text_model: textModel,
+          vision_model: visionModel
+        }
       });
-      setAIProviders({ text: textProvider, vision: visionProvider });
+      setAIProviders({ text: textProvider, vision: visionProvider, text_model: textModel, vision_model: visionModel });
     } catch (error) {
       console.error('Error updating AI providers:', error);
       throw error;
