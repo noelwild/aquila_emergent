@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """
 Comprehensive test script for Aquila S1000D-AI backend system.
+
+This module is intended for manual integration testing and requires network
+access and valid API keys. It should not run as part of the automated test
+suite.
 """
+
+import pytest
+
+pytest.skip("Manual integration test", allow_module_level=True)
 
 import requests
 import json
