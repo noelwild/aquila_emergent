@@ -12,40 +12,45 @@ class ProviderFactory:
     """Factory for creating AI providers based on configuration."""
     
     @staticmethod
-    def create_text_provider(provider_type: str = None) -> TextProvider:
+    def create_text_provider(provider_type: str = None, model: str | None = None) -> TextProvider:
         """Create text provider based on configuration."""
         if provider_type is None:
             provider_type = os.environ.get("TEXT_PROVIDER", "openai").lower()
-        
+        if model is None:
+            model = os.environ.get("TEXT_MODEL")
+
         if provider_type == "openai":
-            return OpenAITextProvider()
+            return OpenAITextProvider(model=model)
         elif provider_type == "anthropic":
-            return AnthropicTextProvider()
+            return AnthropicTextProvider(model=model)
         elif provider_type == "local":
-            return LocalTextProvider()
+            return LocalTextProvider(model=model)
         else:
             raise ValueError(f"Unknown text provider: {provider_type}")
     
     @staticmethod
-    def create_vision_provider(provider_type: str = None) -> VisionProvider:
+    def create_vision_provider(provider_type: str = None, model: str | None = None) -> VisionProvider:
         """Create vision provider based on configuration."""
         if provider_type is None:
             provider_type = os.environ.get("VISION_PROVIDER", "openai").lower()
-        
+        if model is None:
+            model = os.environ.get("VISION_MODEL")
+
         if provider_type == "openai":
-            return OpenAIVisionProvider()
+            return OpenAIVisionProvider(model=model)
         elif provider_type == "anthropic":
-            return AnthropicVisionProvider()
+            return AnthropicVisionProvider(model=model)
         elif provider_type == "local":
-            return LocalVisionProvider()
+            return LocalVisionProvider(model=model)
         else:
             raise ValueError(f"Unknown vision provider: {provider_type}")
     
     @staticmethod
-    def create_providers(text_provider: str = None, vision_provider: str = None) -> Tuple[TextProvider, VisionProvider]:
+    def create_providers(text_provider: str = None, vision_provider: str = None,
+                         text_model: str | None = None, vision_model: str | None = None) -> Tuple[TextProvider, VisionProvider]:
         """Create both text and vision providers."""
-        text_prov = ProviderFactory.create_text_provider(text_provider)
-        vision_prov = ProviderFactory.create_vision_provider(vision_provider)
+        text_prov = ProviderFactory.create_text_provider(text_provider, text_model)
+        vision_prov = ProviderFactory.create_vision_provider(vision_provider, vision_model)
         return text_prov, vision_prov
     
     @staticmethod
@@ -62,6 +67,8 @@ class ProviderFactory:
         config = {
             "text_provider": os.environ.get("TEXT_PROVIDER", "openai"),
             "vision_provider": os.environ.get("VISION_PROVIDER", "openai"),
+            "text_model": os.environ.get("TEXT_MODEL", ""),
+            "vision_model": os.environ.get("VISION_MODEL", ""),
             "openai_available": bool(os.environ.get("OPENAI_API_KEY")),
             "anthropic_available": bool(os.environ.get("ANTHROPIC_API_KEY")),
             "local_available": True  # Always available (mock)

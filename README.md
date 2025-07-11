@@ -157,6 +157,7 @@ Aquila S1000D-AI is a proof-of-concept platform for processing technical documen
    pip install -r backend/requirements.txt
    ```
 2. Copy `backend/.env.example` to `backend/.env` and fill in values for your environment (MongoDB URL, API keys, provider settings).
+   The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the default models.
 3. Run the API server:
    ```bash
    uvicorn backend.server:app --reload

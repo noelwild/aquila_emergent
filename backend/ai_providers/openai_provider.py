@@ -14,11 +14,11 @@ import asyncio
 class OpenAITextProvider(TextProvider):
     """OpenAI text processing provider."""
     
-    def __init__(self):
+    def __init__(self, model: str | None = None):
         self.client = openai.AsyncOpenAI(
             api_key=os.environ.get("OPENAI_API_KEY")
         )
-        self.model = "gpt-4o-mini"
+        self.model = model or os.environ.get("TEXT_MODEL", "gpt-4o-mini")
     
     async def classify_document(self, request: TextProcessingRequest) -> TextProcessingResponse:
         """Classify document type and extract basic metadata."""
@@ -184,12 +184,12 @@ class OpenAITextProvider(TextProvider):
 
 class OpenAIVisionProvider(VisionProvider):
     """OpenAI vision processing provider."""
-    
-    def __init__(self):
+
+    def __init__(self, model: str | None = None):
         self.client = openai.AsyncOpenAI(
             api_key=os.environ.get("OPENAI_API_KEY")
         )
-        self.model = "gpt-4o-mini"
+        self.model = model or os.environ.get("VISION_MODEL", "gpt-4o-mini")
     
     async def generate_caption(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
         """Generate caption for image."""
