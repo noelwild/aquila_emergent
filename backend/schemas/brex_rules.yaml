@@ -1,0 +1,10 @@
+allowed_dm_types:
+  - PROC
+  - DESC
+  - IPD
+  - CIR
+  - SNS
+  - WIR
+  - GEN
+min_ste_score: 0.8
+max_title_length: 80
