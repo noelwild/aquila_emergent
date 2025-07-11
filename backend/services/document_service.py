@@ -254,26 +254,50 @@ class DocumentService:
             return [basic_dm]
     
     def _generate_dmc(self, classification_result: dict, variant: str = "00") -> str:
-        """Generate Data Module Code according to S1000D specification."""
-        # This is a simplified DMC generation
-        # In a real implementation, this would follow the full S1000D DMC specification
-        
+        """Generate Data Module Code according to S1000D specification.
+
+        This implementation derives several fields from ``classification_result``
+        so that different document types and titles yield distinct codes.
+        """
+
+        dm_type = (classification_result.get("dm_type") or "GEN").upper()
+        title = classification_result.get("title", "")
+
+        # Map data module type to a numeric info code
+        dm_type_map = {
+            "PROC": "001",
+            "DESC": "002",
+            "IPD": "003",
+            "CIR": "004",
+            "SNS": "005",
+            "WIR": "006",
+            "GEN": "000",
+        }
+        info_code = dm_type_map.get(dm_type, "000")
+
+        # Hash the title to create repeatable numeric sections
+        title_hash = int(hashlib.sha256(title.encode("utf-8")).hexdigest(), 16)
+
         model_ident = "AQUILA"
         system_diff = "00"
-        system_code = "000"
-        sub_system_code = "00"
-        sub_sub_system_code = "00"
-        assy_code = "00"
+        system_code = str(title_hash % 1000).zfill(3)
+        sub_system_code = str((title_hash // 1000) % 100).zfill(2)
+        sub_sub_system_code = str((title_hash // 100000) % 100).zfill(2)
+        assy_code = str((title_hash // 10000000) % 100).zfill(2)
         disassy_code = "00"
         disassy_code_variant = "00"
-        info_code = "000"
-        info_code_variant = "A"
+        info_code_variant = chr(65 + title_hash % 26)
         item_location_code = "A"
         learn_code = "00"
         learn_event_code = "00"
-        
-        dmc = f"DMC-{model_ident}-{system_diff}-{system_code}-{sub_system_code}-{sub_sub_system_code}-{assy_code}-{disassy_code}-{disassy_code_variant}-{info_code}-{info_code_variant}-{item_location_code}-{learn_code}-{learn_event_code}-{variant}"
-        
+
+        dmc = (
+            f"DMC-{model_ident}-{system_diff}-{system_code}-{sub_system_code}-"
+            f"{sub_sub_system_code}-{assy_code}-{disassy_code}-"
+            f"{disassy_code_variant}-{info_code}-{info_code_variant}-"
+            f"{item_location_code}-{learn_code}-{learn_event_code}-{variant}"
+        )
+
         return dmc
     
     async def process_image_with_ai(self, icn: ICN) -> ICN:
