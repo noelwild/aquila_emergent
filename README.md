@@ -81,11 +81,13 @@ yarn install
 cd ..
 ```
 
-Copy the sample environment file and add your API keys:
+Copy the sample environment file and supply your own API keys:
 
 ```bash
 cp backend/.env.example backend/.env
-# Edit backend/.env to set OPENAI_KEY, ANTHROPIC_KEY, MONGO_URL, etc.
+# Edit `backend/.env` and provide values for `OPENAI_API_KEY`,
+# `ANTHROPIC_API_KEY`, `STRIPE_API_KEY` (optional) and any database
+# settings like `MONGO_URL`.
 ```
 
 Finally, start the backend and frontend servers in separate terminals:
@@ -134,7 +136,7 @@ Aquila S1000D-AI is a proof-of-concept platform for processing technical documen
    ```bash
    pip install -r backend/requirements.txt
    ```
-2. Copy `backend/.env` and adjust values for your environment (MongoDB URL, API keys, provider settings).
+2. Copy `backend/.env.example` to `backend/.env` and fill in values for your environment (MongoDB URL, API keys, provider settings).
 3. Run the API server:
    ```bash
    uvicorn backend.server:app --reload
