@@ -3,15 +3,20 @@
 Comprehensive test script for Aquila S1000D-AI backend system.
 """
 
-import requests
+import os
 import json
 import base64
-import os
 import time
+import requests
 from PIL import Image
 import io
 import sys
 from pprint import pprint
+
+import pytest
+
+if not os.getenv("AQUILA_INTEGRATION_TESTS"):
+    pytest.skip("Skipping backend integration tests", allow_module_level=True)
 
 # API Base URL
 API_BASE_URL = "https://e79d7fba-faa5-470f-8a4a-3841cc19f48a.preview.emergentagent.com/api"
