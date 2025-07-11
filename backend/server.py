@@ -96,6 +96,10 @@ async def update_settings(settings: SettingsModel):
     # Update environment variables
     os.environ["TEXT_PROVIDER"] = settings.text_provider.value
     os.environ["VISION_PROVIDER"] = settings.vision_provider.value
+    if settings.text_model:
+        os.environ["TEXT_MODEL"] = settings.text_model
+    if settings.vision_model:
+        os.environ["VISION_MODEL"] = settings.vision_model
     
     return {"message": "Settings updated successfully", "settings": system_settings.dict()}
 
@@ -107,13 +111,15 @@ async def get_providers():
         "available": ProviderFactory.get_available_providers(),
         "current": {
             "text": os.environ.get("TEXT_PROVIDER", "openai"),
-            "vision": os.environ.get("VISION_PROVIDER", "openai")
+            "vision": os.environ.get("VISION_PROVIDER", "openai"),
+            "text_model": os.environ.get("TEXT_MODEL", ""),
+            "vision_model": os.environ.get("VISION_MODEL", "")
         },
         "config": ProviderFactory.validate_provider_config()
     }
 
 @api_router.post("/providers/set")
-async def set_providers(text_provider: str, vision_provider: str):
+async def set_providers(text_provider: str, vision_provider: str, text_model: str | None = None, vision_model: str | None = None):
     """Set AI providers."""
     try:
         # Validate providers
@@ -126,6 +132,12 @@ async def set_providers(text_provider: str, vision_provider: str):
         # Update environment
         os.environ["TEXT_PROVIDER"] = text_provider
         os.environ["VISION_PROVIDER"] = vision_provider
+        if text_model is not None:
+            os.environ["TEXT_MODEL"] = text_model
+            system_settings.text_model = text_model
+        if vision_model is not None:
+            os.environ["VISION_MODEL"] = vision_model
+            system_settings.vision_model = vision_model
         
         # Update system settings
         system_settings.text_provider = ProviderEnum(text_provider)
@@ -134,7 +146,9 @@ async def set_providers(text_provider: str, vision_provider: str):
         return {
             "message": "Providers updated successfully",
             "text_provider": text_provider,
-            "vision_provider": vision_provider
+            "vision_provider": vision_provider,
+            "text_model": os.environ.get("TEXT_MODEL", ""),
+            "vision_model": os.environ.get("VISION_MODEL", "")
         }
     except Exception as e:
         raise HTTPException(500, f"Error updating providers: {str(e)}")

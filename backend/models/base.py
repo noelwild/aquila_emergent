@@ -57,6 +57,8 @@ class SettingsModel(BaseDocument):
     """System settings model."""
     text_provider: ProviderEnum = ProviderEnum.OPENAI
     vision_provider: ProviderEnum = ProviderEnum.OPENAI
+    text_model: str = "gpt-4o-mini"
+    vision_model: str = "gpt-4o-mini"
     security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
     default_language: str = "en-US"
     dmc_policy: str = "default"

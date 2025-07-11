@@ -10,9 +10,9 @@ import base64
 
 class LocalTextProvider(TextProvider):
     """Local text processing provider (mock implementation)."""
-    
-    def __init__(self):
-        self.model = "local-qwen3-30b"
+
+    def __init__(self, model: str | None = None):
+        self.model = model or os.environ.get("TEXT_MODEL", "local-qwen3-30b")
     
     async def classify_document(self, request: TextProcessingRequest) -> TextProcessingResponse:
         """Classify document type and extract basic metadata."""
@@ -141,9 +141,9 @@ class LocalTextProvider(TextProvider):
 
 class LocalVisionProvider(VisionProvider):
     """Local vision processing provider (mock implementation)."""
-    
-    def __init__(self):
-        self.model = "local-idefics2-8b"
+
+    def __init__(self, model: str | None = None):
+        self.model = model or os.environ.get("VISION_MODEL", "local-idefics2-8b")
     
     async def generate_caption(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
         """Generate caption for image."""

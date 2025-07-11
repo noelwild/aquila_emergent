@@ -14,11 +14,11 @@ import asyncio
 class AnthropicTextProvider(TextProvider):
     """Anthropic text processing provider."""
     
-    def __init__(self):
+    def __init__(self, model: str | None = None):
         self.client = anthropic.AsyncAnthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY")
         )
-        self.model = "claude-3-sonnet-20240229"
+        self.model = model or os.environ.get("TEXT_MODEL", "claude-3-sonnet-20240229")
     
     async def classify_document(self, request: TextProcessingRequest) -> TextProcessingResponse:
         """Classify document type and extract basic metadata."""
@@ -190,12 +190,12 @@ class AnthropicTextProvider(TextProvider):
 
 class AnthropicVisionProvider(VisionProvider):
     """Anthropic vision processing provider."""
-    
-    def __init__(self):
+
+    def __init__(self, model: str | None = None):
         self.client = anthropic.AsyncAnthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY")
         )
-        self.model = "claude-3-sonnet-20240229"
+        self.model = model or os.environ.get("VISION_MODEL", "claude-3-sonnet-20240229")
     
     async def generate_caption(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
         """Generate caption for image."""

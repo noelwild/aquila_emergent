@@ -173,6 +173,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "Environment configuration is correct. Both OpenAI and Anthropic API keys are properly configured and working."
+      - working: true
+        agent: "main"
+        comment: "Added TEXT_MODEL and VISION_MODEL variables to allow selecting models from the UI"
 
 frontend:
   - task: "Dark Theme UI Framework"
@@ -282,6 +285,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Complete AI provider configuration interface with testing capabilities for OpenAI, Anthropic, and Local providers"
+      - working: true
+        agent: "main"
+        comment: "Added fields to choose text and vision model names"
 
   - task: "Illustration Manager"
     implemented: true

@@ -10,6 +10,8 @@ const AIProviderModal = ({ onClose }) => {
   const { aiProviders, updateAIProviders } = useAquila();
   const [selectedTextProvider, setSelectedTextProvider] = useState(aiProviders.text);
   const [selectedVisionProvider, setSelectedVisionProvider] = useState(aiProviders.vision);
+  const [selectedTextModel, setSelectedTextModel] = useState(aiProviders.textModel);
+  const [selectedVisionModel, setSelectedVisionModel] = useState(aiProviders.visionModel);
   const [providerConfig, setProviderConfig] = useState({});
   const [loading, setLoading] = useState(false);
   const [testingProvider, setTestingProvider] = useState(null);
@@ -31,7 +33,12 @@ const AIProviderModal = ({ onClose }) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await updateAIProviders(selectedTextProvider, selectedVisionProvider);
+      await updateAIProviders(
+        selectedTextProvider,
+        selectedVisionProvider,
+        selectedTextModel,
+        selectedVisionModel
+      );
       onClose();
     } catch (error) {
       console.error('Error updating providers:', error);
@@ -166,6 +173,7 @@ const AIProviderModal = ({ onClose }) => {
                 <div className="flex items-center gap-2">
                   {getProviderStatusIcon(aiProviders.text, 'text')}
                   <span className="capitalize">{aiProviders.text}</span>
+                  <span className="text-xs text-aquila-text-muted">{aiProviders.textModel}</span>
                 </div>
               </div>
               <div>
@@ -175,6 +183,7 @@ const AIProviderModal = ({ onClose }) => {
                 <div className="flex items-center gap-2">
                   {getProviderStatusIcon(aiProviders.vision, 'vision')}
                   <span className="capitalize">{aiProviders.vision}</span>
+                  <span className="text-xs text-aquila-text-muted">{aiProviders.visionModel}</span>
                 </div>
               </div>
             </div>
@@ -214,7 +223,10 @@ const AIProviderModal = ({ onClose }) => {
                           name="textProvider"
                           value={provider.id}
                           checked={selectedTextProvider === provider.id}
-                          onChange={(e) => setSelectedTextProvider(e.target.value)}
+                          onChange={(e) => {
+                            setSelectedTextProvider(e.target.value);
+                            setSelectedTextModel(provider.models.text);
+                          }}
                           disabled={getProviderStatus(provider.id, 'text') === 'unavailable'}
                           className="aquila-focus"
                         />
@@ -229,6 +241,12 @@ const AIProviderModal = ({ onClose }) => {
                             <Zap size={12} />
                           )}
                         </button>
+                        <input
+                          type="text"
+                          value={selectedTextModel}
+                          onChange={(e) => setSelectedTextModel(e.target.value)}
+                          className="aquila-input text-xs w-32"
+                        />
                       </div>
                       
                       <div className="flex items-center gap-2">
@@ -238,7 +256,10 @@ const AIProviderModal = ({ onClose }) => {
                           name="visionProvider"
                           value={provider.id}
                           checked={selectedVisionProvider === provider.id}
-                          onChange={(e) => setSelectedVisionProvider(e.target.value)}
+                          onChange={(e) => {
+                            setSelectedVisionProvider(e.target.value);
+                            setSelectedVisionModel(provider.models.vision);
+                          }}
                           disabled={getProviderStatus(provider.id, 'vision') === 'unavailable'}
                           className="aquila-focus"
                         />
@@ -253,6 +274,12 @@ const AIProviderModal = ({ onClose }) => {
                             <Zap size={12} />
                           )}
                         </button>
+                        <input
+                          type="text"
+                          value={selectedVisionModel}
+                          onChange={(e) => setSelectedVisionModel(e.target.value)}
+                          className="aquila-input text-xs w-32"
+                        />
                       </div>
                     </div>
                   </div>
