@@ -3,10 +3,10 @@ import { useAquila } from '../contexts/AquilaContext';
 import { X, Download, Settings, FileText, Image, Package } from 'lucide-react';
 
 const PublishModal = ({ onClose }) => {
-  const { dataModules, icns } = useAquila();
+  const { dataModules, icns, currentDataModule } = useAquila();
   const [publishConfig, setPublishConfig] = useState({
     variants: ['verbatim', 'ste'],
-    formats: ['xml', 'html', 'pdf'],
+    formats: ['xml', 'html', 'pdf', 'docx'],
     scope: 'all-green',
     includeIllustrations: true,
     includeApplicability: true,
@@ -28,8 +28,7 @@ const PublishModal = ({ onClose }) => {
       if (publishConfig.scope === 'all-green') {
         modulesToPublish = dataModules.filter(dm => dm.validation_status === 'green');
       } else if (publishConfig.scope === 'current') {
-        // Would need to implement current module selection
-        modulesToPublish = dataModules.slice(0, 1); // Placeholder
+        modulesToPublish = currentDataModule ? [currentDataModule] : [];
       }
 
       // Simulate publishing process
@@ -140,7 +139,7 @@ const PublishModal = ({ onClose }) => {
             <div>
               <h3 className="text-lg font-semibold mb-3">Output Formats</h3>
               <div className="grid grid-cols-2 gap-2">
-                {['xml', 'html', 'pdf', 'txt'].map(format => (
+                {['xml', 'html', 'pdf', 'docx'].map(format => (
                   <label key={format} className="flex items-center gap-2">
                     <input
                       type="checkbox"

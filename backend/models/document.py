@@ -1,14 +1,17 @@
 """Document and Data Module models."""
 
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-from datetime import datetime
-from .base import BaseDocument, DMTypeEnum, ValidationStatus, SecurityLevel
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
+from .base import BaseDocument, DMTypeEnum, SecurityLevel, ValidationStatus
 
 
 class UploadedDocument(BaseDocument):
     """Uploaded document model."""
+
     filename: str
     file_path: str
     mime_type: str
@@ -21,6 +24,7 @@ class UploadedDocument(BaseDocument):
 
 class ICN(BaseDocument):
     """Illustration Control Number model."""
+
     icn_id: str = Field(default_factory=lambda: f"ICN-{uuid.uuid4().hex[:8].upper()}")
     filename: str
     file_path: str
@@ -33,10 +37,12 @@ class ICN(BaseDocument):
     height: int = 0
     security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
     watermark_applied: bool = False
+    source_page: Optional[int] = None  # page or slide index where extracted
 
 
 class DataModule(BaseDocument):
     """S1000D Data Module model."""
+
     dmc: str  # Data Module Code
     title: str
     dm_type: DMTypeEnum
@@ -44,11 +50,11 @@ class DataModule(BaseDocument):
     content: str = ""
     xml_content: str = ""
     html_content: str = ""
-    
+
     # References
     icn_refs: List[str] = []
     dm_refs: List[str] = []
-    
+
     # Validation
     validation_status: ValidationStatus = ValidationStatus.RED
     validation_errors: List[str] = []
@@ -57,13 +63,13 @@ class DataModule(BaseDocument):
     icn_valid: bool = False
     applicability_valid: bool = False
     ste_score: float = 0.0
-    
+
     # Metadata
     source_document_id: str
     template_used: str = ""
     applicability: Dict[str, Any] = {}
     security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
-    
+
     # Processing
     processing_status: str = "pending"
     processing_logs: List[Dict[str, Any]] = []
@@ -71,6 +77,7 @@ class DataModule(BaseDocument):
 
 class ProcessingTask(BaseDocument):
     """Processing task model."""
+
     task_type: str  # "text", "vision", "validation", etc.
     input_data: Dict[str, Any]
     output_data: Dict[str, Any] = {}
@@ -78,7 +85,7 @@ class ProcessingTask(BaseDocument):
     error_message: str = ""
     processing_time: float = 0.0
     provider_used: str = ""
-    
+
     # Audit
     prompt_hash: str = ""
     response_hash: str = ""
@@ -87,13 +94,14 @@ class ProcessingTask(BaseDocument):
 
 class PublicationModule(BaseDocument):
     """Publication Module model."""
+
     pm_code: str
     title: str
     dm_list: List[str] = []  # List of DMC codes
     structure: Dict[str, Any] = {}  # Tree structure
     cover_data: Dict[str, Any] = {}
     status: str = "draft"
-    
+
     # Export settings
     variants: List[str] = ["verbatim", "ste"]
     formats: List[str] = ["xml", "html", "pdf"]
