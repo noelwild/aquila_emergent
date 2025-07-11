@@ -9,17 +9,19 @@ import uuid
 
 class DMTypeEnum(str, Enum):
     """Data Module types as per S1000D specification."""
+
     PROC = "PROC"  # Procedures
     DESC = "DESC"  # Descriptions
-    IPD = "IPD"   # Illustrated Parts Data
-    CIR = "CIR"   # Circuits
-    SNS = "SNS"   # Service Notices
-    WIR = "WIR"   # Wiring
-    GEN = "GEN"   # General
+    IPD = "IPD"  # Illustrated Parts Data
+    CIR = "CIR"  # Circuits
+    SNS = "SNS"  # Service Notices
+    WIR = "WIR"  # Wiring
+    GEN = "GEN"  # General
 
 
 class ProviderEnum(str, Enum):
     """AI Provider types."""
+
     LOCAL = "local"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -27,6 +29,7 @@ class ProviderEnum(str, Enum):
 
 class ValidationStatus(str, Enum):
     """Validation status for LEDs."""
+
     GREEN = "green"
     AMBER = "amber"
     RED = "red"
@@ -35,6 +38,7 @@ class ValidationStatus(str, Enum):
 
 class SecurityLevel(str, Enum):
     """Security classification levels."""
+
     UNCLASSIFIED = "UNCLASSIFIED"
     CONFIDENTIAL = "CONFIDENTIAL"
     SECRET = "SECRET"
@@ -43,20 +47,22 @@ class SecurityLevel(str, Enum):
 
 class BaseDocument(BaseModel):
     """Base document model."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+        json_encoders = {datetime: lambda v: v.isoformat()}
 
 
 class SettingsModel(BaseDocument):
     """System settings model."""
+
     text_provider: ProviderEnum = ProviderEnum.OPENAI
+    text_model: str = "gpt-4o-mini"
     vision_provider: ProviderEnum = ProviderEnum.OPENAI
+    vision_model: str = "gpt-4o-mini"
     security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
     default_language: str = "en-US"
     dmc_policy: str = "default"
