@@ -14,11 +14,15 @@ import sys
 from pprint import pprint
 
 # API Base URL
-API_BASE_URL = "https://e79d7fba-faa5-470f-8a4a-3841cc19f48a.preview.emergentagent.com/api"
+# Allow overriding via environment variable for local testing
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 
 # API Keys
-OPENAI_API_KEY = "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"
-ANTHROPIC_API_KEY = "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"
+# These values default to simple placeholders so the script can run without
+# additional configuration. Set the environment variables to real keys when
+# required.
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "test-openai-key")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "test-anthropic-key")
 
 # Test data
 SAMPLE_TEXT = """
