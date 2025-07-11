@@ -10,6 +10,8 @@ const AIProviderModal = ({ onClose }) => {
   const { aiProviders, updateAIProviders } = useAquila();
   const [selectedTextProvider, setSelectedTextProvider] = useState(aiProviders.text);
   const [selectedVisionProvider, setSelectedVisionProvider] = useState(aiProviders.vision);
+  const [selectedTextModel, setSelectedTextModel] = useState(aiProviders.text_model);
+  const [selectedVisionModel, setSelectedVisionModel] = useState(aiProviders.vision_model);
   const [providerConfig, setProviderConfig] = useState({});
   const [loading, setLoading] = useState(false);
   const [testingProvider, setTestingProvider] = useState(null);
@@ -19,10 +21,24 @@ const AIProviderModal = ({ onClose }) => {
     loadProviderConfig();
   }, []);
 
+  useEffect(() => {
+    const prov = providerConfig.available?.models?.[selectedTextProvider];
+    if (prov) {
+      setSelectedTextModel(prov.text[0]);
+    }
+  }, [selectedTextProvider, providerConfig]);
+
+  useEffect(() => {
+    const prov = providerConfig.available?.models?.[selectedVisionProvider];
+    if (prov) {
+      setSelectedVisionModel(prov.vision[0]);
+    }
+  }, [selectedVisionProvider, providerConfig]);
+
   const loadProviderConfig = async () => {
     try {
       const response = await axios.get(`${API}/providers`);
-      setProviderConfig(response.data.config);
+      setProviderConfig(response.data);
     } catch (error) {
       console.error('Error loading provider config:', error);
     }
@@ -31,7 +47,7 @@ const AIProviderModal = ({ onClose }) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await updateAIProviders(selectedTextProvider, selectedVisionProvider);
+      await updateAIProviders(selectedTextProvider, selectedVisionProvider, selectedTextModel, selectedVisionModel);
       onClose();
     } catch (error) {
       console.error('Error updating providers:', error);
@@ -108,35 +124,12 @@ const AIProviderModal = ({ onClose }) => {
     }
   };
 
-  const providers = [
-    {
-      id: 'openai',
-      name: 'OpenAI',
-      description: 'GPT-4o-mini for both text and vision processing',
-      models: {
-        text: 'gpt-4o-mini',
-        vision: 'gpt-4o-mini'
-      }
-    },
-    {
-      id: 'anthropic',
-      name: 'Anthropic',
-      description: 'Claude-3-Sonnet for both text and vision processing',
-      models: {
-        text: 'claude-3-sonnet-20240229',
-        vision: 'claude-3-sonnet-20240229'
-      }
-    },
-    {
-      id: 'local',
-      name: 'Local Models',
-      description: 'On-premise Qwen3-30B (text) and iDefics2-8B (vision)',
-      models: {
-        text: 'local-qwen3-30b',
-        vision: 'local-idefics2-8b'
-      }
-    }
-  ];
+  const providers = Object.keys(providerConfig.available?.models || {}).map((id) => ({
+    id,
+    name: id.charAt(0).toUpperCase() + id.slice(1),
+    description: '',
+    models: providerConfig.available.models[id]
+  }));
 
   return (
     <div className="aquila-modal" onClick={onClose}>
@@ -218,6 +211,17 @@ const AIProviderModal = ({ onClose }) => {
                           disabled={getProviderStatus(provider.id, 'text') === 'unavailable'}
                           className="aquila-focus"
                         />
+                        {selectedTextProvider === provider.id && (
+                          <select
+                            value={selectedTextModel}
+                            onChange={(e) => setSelectedTextModel(e.target.value)}
+                            className="aquila-select text-xs"
+                          >
+                            {provider.models.text.map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        )}
                         <button
                           onClick={() => testTextProvider(provider.id)}
                           disabled={testingProvider === `text-${provider.id}` || getProviderStatus(provider.id, 'text') === 'unavailable'}
@@ -242,6 +246,17 @@ const AIProviderModal = ({ onClose }) => {
                           disabled={getProviderStatus(provider.id, 'vision') === 'unavailable'}
                           className="aquila-focus"
                         />
+                        {selectedVisionProvider === provider.id && (
+                          <select
+                            value={selectedVisionModel}
+                            onChange={(e) => setSelectedVisionModel(e.target.value)}
+                            className="aquila-select text-xs"
+                          >
+                            {provider.models.vision.map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        )}
                         <button
                           onClick={() => testVisionProvider(provider.id)}
                           disabled={testingProvider === `vision-${provider.id}` || getProviderStatus(provider.id, 'vision') === 'unavailable'}
