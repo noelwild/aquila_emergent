@@ -1,7 +1,7 @@
 """Document and Data Module models."""
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import List, Dict, Any
 from datetime import datetime
 from .base import BaseDocument, DMTypeEnum, ValidationStatus, SecurityLevel
 import uuid
@@ -22,6 +22,7 @@ class UploadedDocument(BaseDocument):
 class ICN(BaseDocument):
     """Illustration Control Number model."""
     icn_id: str = Field(default_factory=lambda: f"ICN-{uuid.uuid4().hex[:8].upper()}")
+    lcn: str = Field(default_factory=lambda: f"LCN-{uuid.uuid4().hex[:8].upper()}")
     filename: str
     file_path: str
     sha256_hash: str
@@ -44,11 +45,11 @@ class DataModule(BaseDocument):
     content: str = ""
     xml_content: str = ""
     html_content: str = ""
-    
+
     # References
-    icn_refs: List[str] = []
-    dm_refs: List[str] = []
-    
+    icn_refs: List[str] = []  # LCNs of referenced images
+    dm_refs: List[str] = []   # DMCs of referenced data modules
+
     # Validation
     validation_status: ValidationStatus = ValidationStatus.RED
     validation_errors: List[str] = []
@@ -57,13 +58,13 @@ class DataModule(BaseDocument):
     icn_valid: bool = False
     applicability_valid: bool = False
     ste_score: float = 0.0
-    
+
     # Metadata
     source_document_id: str
     template_used: str = ""
     applicability: Dict[str, Any] = {}
     security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
-    
+
     # Processing
     processing_status: str = "pending"
     processing_logs: List[Dict[str, Any]] = []
@@ -78,7 +79,7 @@ class ProcessingTask(BaseDocument):
     error_message: str = ""
     processing_time: float = 0.0
     provider_used: str = ""
-    
+
     # Audit
     prompt_hash: str = ""
     response_hash: str = ""
@@ -93,8 +94,10 @@ class PublicationModule(BaseDocument):
     structure: Dict[str, Any] = {}  # Tree structure
     cover_data: Dict[str, Any] = {}
     status: str = "draft"
-    
+
     # Export settings
     variants: List[str] = ["verbatim", "ste"]
     formats: List[str] = ["xml", "html", "pdf"]
     security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
+
+
