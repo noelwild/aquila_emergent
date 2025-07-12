@@ -1,0 +1,35 @@
+title:
+  required: true
+  maxLength: 100
+  pattern: "^[A-Za-z0-9\\s\\-_]+$"
+dmc:
+  required: true
+  pattern: "^DMC-[A-Z0-9\\-]+$"
+content:
+  required: true
+  minLength: 10
+  maxLength: 50000
+illustrations:
+  maxCount: 50
+  allowedFormats:
+    - jpg
+    - jpeg
+    - png
+    - gif
+    - svg
+tables:
+  maxColumns: 20
+  maxRows: 200
+references:
+  validateDMRefs: true
+  validateICNRefs: true
+  allowBrokenRefs: false
+security:
+  allowedClassifications:
+    - UNCLASSIFIED
+    - CONFIDENTIAL
+    - SECRET
+  requireWatermark: false
+ste:
+  minScore: 0.85
+  warnBelowScore: 0.90
