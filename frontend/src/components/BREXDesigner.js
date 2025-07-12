@@ -32,6 +32,19 @@ const BREXDesigner = () => {
     }
   };
 
+  const loadDefaultBREXRules = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/brex-default`);
+      if (response.ok) {
+        const rules = await response.json();
+        setBrexRules(rules);
+        setYamlContent(YAML.stringify(rules, { indent: 2 }));
+      }
+    } catch (error) {
+      console.error('Error loading default BREX rules:', error);
+    }
+  };
+
   const getDefaultBREXRules = () => ({
     title: {
       required: true,
@@ -217,6 +230,12 @@ const BREXDesigner = () => {
             className={`aquila-button-secondary ${isEditingYaml ? 'bg-aquila-cyan text-white' : ''}`}
           >
             YAML
+          </button>
+          <button
+            onClick={loadDefaultBREXRules}
+            className="aquila-button-secondary"
+          >
+            Load Defaults
           </button>
           <button
             onClick={saveBREXRules}
