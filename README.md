@@ -103,6 +103,7 @@ cp backend/.env.example backend/.env
 # automatically from Hugging Face on first use.
 # Set `SECRET_KEY` to a random string for signing authentication tokens and
 # optionally adjust `ACCESS_TOKEN_EXPIRE_MINUTES`.
+# Set `ALLOWED_ORIGINS` to a comma-separated list of allowed origins for CORS.
 ```
 The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the local model paths.
 
