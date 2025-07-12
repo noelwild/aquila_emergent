@@ -3,13 +3,14 @@
 import hashlib
 import base64
 import aiofiles
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
 from pathlib import Path
 import shutil
 from PyPDF2 import PdfReader
 from pptx import Presentation
 from openpyxl import load_workbook
 from PIL import Image
+import pytesseract
 from docx import Document
 from pdf2image import convert_from_path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -36,7 +37,10 @@ class DocumentService:
     """Service for document processing and management."""
 
     def __init__(
-        self, upload_path: str = "/tmp/aquila_uploads", settings: Any | None = None
+        self,
+        upload_path: str = "/tmp/aquila_uploads",
+        settings: Any | None = None,
+        notifier: Callable[[str], None] | None = None,
     ):
         self.upload_path = Path(upload_path)
         self.upload_path.mkdir(parents=True, exist_ok=True)
@@ -45,6 +49,7 @@ class DocumentService:
         self.export_path = self.upload_path / "exports"
         self.export_path.mkdir(parents=True, exist_ok=True)
         self.settings = settings
+        self.notifier = notifier
         backend_root = Path(__file__).resolve().parent.parent
         self.templates_path = backend_root / "templates"
         self.schema_path = backend_root / "schemas" / "simple_data_module.xsd"
@@ -170,49 +175,39 @@ class DocumentService:
         icns: List[ICN] = []
         try:
             pages = await asyncio.to_thread(convert_from_path, str(file_path))
-            for idx, img in enumerate(pages, start=1):
-                filename = f"{file_path.stem}_page{idx}.png"
-                out_path = self.icn_path / filename
-                img.save(out_path, format="PNG")
-                async with aiofiles.open(out_path, "rb") as f:
-                    data = await f.read()
-                sha256_hash = hashlib.sha256(data).hexdigest()
-                width, height = img.size
-                icns.append(
-                    ICN(
-                        filename=filename,
-                        file_path=str(out_path),
-                        sha256_hash=sha256_hash,
-                        mime_type="image/png",
-                        width=width,
-                        height=height,
-                        lcn=self._derive_lcn(filename),
-                    )
-                )
-            return icns
         except Exception as e:
             print(f"Error extracting PDF images: {e}")
-            try:
-                placeholder = Image.new("RGB", (1, 1), color="white")
-                filename = f"{file_path.stem}_page1.png"
-                out_path = self.icn_path / filename
-                placeholder.save(out_path, format="PNG")
-                async with aiofiles.open(out_path, "rb") as f:
-                    data = await f.read()
-                sha256_hash = hashlib.sha256(data).hexdigest()
-                icn = ICN(
+            if self.notifier:
+                try:
+                    self.notifier(
+                        f"Failed to extract images from {document.filename}: {e}"
+                    )
+                except Exception:
+                    pass
+            return []
+
+        for idx, img in enumerate(pages, start=1):
+            filename = f"{file_path.stem}_page{idx}.png"
+            out_path = self.icn_path / filename
+            img.save(out_path, format="PNG")
+            async with aiofiles.open(out_path, "rb") as f:
+                data = await f.read()
+            sha256_hash = hashlib.sha256(data).hexdigest()
+            width, height = img.size
+            context = pytesseract.image_to_string(img)
+            icns.append(
+                ICN(
                     filename=filename,
                     file_path=str(out_path),
                     sha256_hash=sha256_hash,
                     mime_type="image/png",
-                    width=1,
-                    height=1,
+                    width=width,
+                    height=height,
                     lcn=self._derive_lcn(filename),
+                    caption=context.strip(),
                 )
-                icns.append(icn)
-                return icns
-            except Exception:
-                return []
+            )
+        return icns
 
     async def _process_single_image(self, document: UploadedDocument) -> List[ICN]:
         try:
