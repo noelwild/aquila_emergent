@@ -22,6 +22,20 @@ class FakeUserCollection:
     async def insert_one(self, data):
         self.store[data["username"]] = data
 
+    async def update_one(self, query, update):
+        user = self.store.get(query.get("username"))
+        if user:
+            user.update(update.get("$set", {}))
+            return types.SimpleNamespace(matched_count=1)
+        return types.SimpleNamespace(matched_count=0)
+
+    async def update_one(self, query, update):
+        user = self.store.get(query.get("username"))
+        if user:
+            user.update(update.get("$set", {}))
+            return types.SimpleNamespace(matched_count=1)
+        return types.SimpleNamespace(matched_count=0)
+
 class FakeCursor:
     def __init__(self, docs):
         self.docs = docs
@@ -66,6 +80,13 @@ class FakeDB:
         self.users = users
         self.data_modules = FakeCollection(dms)
         self.publication_modules = FakeCollection(pms)
+        class SettingsCol:
+            async def find_one(self, query):
+                return {"id": "s", "brex_rules": {}}
+            async def insert_one(self, data):
+                pass
+
+        self.settings = SettingsCol()
 
 
 def setup_client(tmp_path):
@@ -89,6 +110,7 @@ def test_validation_and_publish(tmp_path):
     client, dm, pm = setup_client(tmp_path)
     # register user and get token
     client.post("/auth/register", data={"username": "u", "password": "p"})
+    server.db.users.store["u"]["roles"] = ["admin"]
     resp = client.post("/auth/token", data={"username": "u", "password": "p"})
     token = resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
