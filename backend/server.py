@@ -584,16 +584,28 @@ async def get_icn_image(icn_id: str):
 
 @api_router.put("/icns/{icn_id}")
 async def update_icn(icn_id: str, icn_data: Dict[str, Any]):
-    """Update an ICN."""
+    """Update an ICN and propagate changes to referencing data modules."""
     try:
+        icn = await db.icns.find_one({"icn_id": icn_id})
+        if not icn:
+            raise HTTPException(404, "ICN not found")
+
+        lcn = icn.get("lcn")
+
         result = await db.icns.update_one(
             {"icn_id": icn_id},
             {"$set": {**icn_data, "updated_at": datetime.utcnow()}}
         )
-        
+
         if result.matched_count == 0:
             raise HTTPException(404, "ICN not found")
-        
+
+        if lcn:
+            await db.data_modules.update_many(
+                {"icn_refs": lcn},
+                {"$set": {"updated_at": datetime.utcnow()}}
+            )
+
         return {"message": "ICN updated successfully"}
     except Exception as e:
         logger.error(f"Error updating ICN: {str(e)}")
