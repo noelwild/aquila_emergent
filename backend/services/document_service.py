@@ -30,11 +30,50 @@ from ..models.document import (
     ProcessingTask,
     PublicationModule,
 )
-from ..models.base import DMTypeEnum, SettingsModel
+from ..models.base import DMTypeEnum, SettingsModel, StructureType
 from ..ai_providers.provider_factory import ProviderFactory
 from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
 
 logger = logging.getLogger(__name__)
+
+# Default structural codes based on S1000D operational environment
+DEFAULT_STRUCTURE_CODES: Dict[StructureType, Dict[str, str]] = {
+    StructureType.AIR: {
+        "system_diff": "10",
+        "system_code": "211",
+        "sub_system_code": "00",
+        "sub_sub_system_code": "00",
+    },
+    StructureType.WATER: {
+        "system_diff": "20",
+        "system_code": "311",
+        "sub_system_code": "00",
+        "sub_sub_system_code": "00",
+    },
+    StructureType.LAND: {
+        "system_diff": "30",
+        "system_code": "411",
+        "sub_system_code": "00",
+        "sub_sub_system_code": "00",
+    },
+    StructureType.OTHER: {
+        "system_diff": "00",
+        "system_code": "000",
+        "sub_system_code": "00",
+        "sub_sub_system_code": "00",
+    },
+}
+
+# Info code mapping per data module type
+DM_INFO_CODE_MAP: Dict[DMTypeEnum, str] = {
+    DMTypeEnum.PROC: "020",
+    DMTypeEnum.DESC: "010",
+    DMTypeEnum.IPD: "040",
+    DMTypeEnum.CIR: "050",
+    DMTypeEnum.SNS: "060",
+    DMTypeEnum.WIR: "070",
+    DMTypeEnum.GEN: "000",
+}
 
 class DocumentService:
     """Service for document processing and management."""
@@ -316,20 +355,30 @@ class DocumentService:
             return [basic]
 
     def _generate_dmc(self, classification_result: dict, variant: str = "00") -> str:
+        """Generate a fully S1000D compliant Data Module Code."""
         cfg = self.settings.dmc_defaults if self.settings else {}
+        structure = DEFAULT_STRUCTURE_CODES.get(
+            getattr(self.settings, "structure_type", StructureType.OTHER),
+            DEFAULT_STRUCTURE_CODES[StructureType.OTHER],
+        )
+
         model_ident = cfg.get("model_ident", "AQUILA")
-        system_diff = cfg.get("system_diff", "00")
-        system_code = cfg.get("system_code", "000")
-        sub_system_code = cfg.get("sub_system_code", "00")
-        sub_sub_system_code = cfg.get("sub_sub_system_code", "00")
+        system_diff = structure.get("system_diff", cfg.get("system_diff", "00"))
+        system_code = structure.get("system_code", cfg.get("system_code", "000"))
+        sub_system_code = structure.get("sub_system_code", cfg.get("sub_system_code", "00"))
+        sub_sub_system_code = structure.get("sub_sub_system_code", cfg.get("sub_sub_system_code", "00"))
+
         assy_code = cfg.get("assy_code", "00")
         disassy_code = cfg.get("disassy_code", "00")
         disassy_code_variant = cfg.get("disassy_code_variant", "00")
-        info_code = cfg.get("info_code", "000")
+
+        dm_type = DMTypeEnum(classification_result.get("dm_type", "GEN"))
+        info_code = DM_INFO_CODE_MAP.get(dm_type, cfg.get("info_code", "000"))
         info_code_variant = cfg.get("info_code_variant", "A")
         item_location_code = cfg.get("item_location_code", "A")
         learn_code = cfg.get("learn_code", "00")
         learn_event_code = cfg.get("learn_event_code", "00")
+
         return (
             f"DMC-{model_ident}-{system_diff}-{system_code}-{sub_system_code}-"
             f"{sub_sub_system_code}-{assy_code}-{disassy_code}-{disassy_code_variant}-"
