@@ -86,11 +86,23 @@ if DEFAULT_BREX_RULES_PATH.exists():
 else:
     DEFAULT_BREX_RULES = {}
 
-# Global settings with defaults
-system_settings = SettingsModel(brex_rules=DEFAULT_BREX_RULES)
+# Initialize document service (settings loaded later)
+document_service = DocumentService(db=db)
 
-# Initialize document service
-document_service = DocumentService(settings=system_settings)
+# Cached settings loaded from the database
+system_settings: SettingsModel | None = None
+
+@app.on_event("startup")
+async def init_settings():
+    """Ensure a settings document exists and cache it."""
+    global system_settings
+    doc = await db.settings.find_one({})
+    if not doc:
+        system_settings = SettingsModel(brex_rules=DEFAULT_BREX_RULES)
+        await db.settings.insert_one(system_settings.dict())
+    else:
+        system_settings = SettingsModel(**doc)
+    document_service.settings = system_settings
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
@@ -247,7 +259,10 @@ async def health_check():
 @api_router.get("/settings")
 async def get_settings():
     """Get current system settings."""
-    return system_settings.dict()
+    doc = await db.settings.find_one({})
+    if not doc:
+        raise HTTPException(500, "Settings not initialized")
+    return SettingsModel(**doc).dict()
 
 @api_router.get("/brex-default")
 async def get_default_brex_rules():
@@ -259,9 +274,17 @@ async def update_settings(settings: Dict[str, Any]):
     """Partially update system settings."""
     global system_settings
 
-    current = system_settings.dict()
+    current_doc = await db.settings.find_one({})
+    if current_doc:
+        current = SettingsModel(**current_doc).dict()
+    else:
+        current = SettingsModel(brex_rules=DEFAULT_BREX_RULES).dict()
     current.update(settings)
     system_settings = SettingsModel(**current)
+    if current_doc:
+        await db.settings.update_one({"id": current_doc["id"]}, {"$set": system_settings.dict()})
+    else:
+        await db.settings.insert_one(system_settings.dict())
 
     # Update environment variables if provider values changed
     if "text_provider" in settings:
@@ -317,6 +340,7 @@ async def set_providers(text_provider: str, vision_provider: str, text_model: st
         # Update system settings
         system_settings.text_provider = ProviderEnum(text_provider)
         system_settings.vision_provider = ProviderEnum(vision_provider)
+        await db.settings.update_one({"id": system_settings.id}, {"$set": system_settings.dict()})
         
         return {
             "message": "Providers updated successfully",
@@ -566,7 +590,11 @@ async def validate_data_module(dmc: str):
         if not module:
             raise HTTPException(404, "Data module not found")
 
-        rules = system_settings.brex_rules or DEFAULT_BREX_RULES
+        settings_doc = await db.settings.find_one({})
+        if settings_doc:
+            rules = SettingsModel(**settings_doc).brex_rules or DEFAULT_BREX_RULES
+        else:
+            rules = DEFAULT_BREX_RULES
         (
             validation_status,
             validation_errors,

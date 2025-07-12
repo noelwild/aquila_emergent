@@ -29,7 +29,7 @@ from ..models.document import (
     ProcessingTask,
     PublicationModule,
 )
-from ..models.base import DMTypeEnum
+from ..models.base import DMTypeEnum, SettingsModel
 from ..ai_providers.provider_factory import ProviderFactory
 from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
 
@@ -43,6 +43,7 @@ class DocumentService:
         upload_path: str = "/tmp/aquila_uploads",
         settings: Any | None = None,
         notifier: Callable[[str], None] | None = None,
+        db: Any | None = None,
     ):
         self.upload_path = Path(upload_path)
         self.upload_path.mkdir(parents=True, exist_ok=True)
@@ -51,10 +52,19 @@ class DocumentService:
         self.export_path = self.upload_path / "exports"
         self.export_path.mkdir(parents=True, exist_ok=True)
         self.settings = settings
+        self.db = db
         self.notifier = notifier
         backend_root = Path(__file__).resolve().parent.parent
         self.templates_path = backend_root / "templates"
         self.schema_path = backend_root / "schemas" / "simple_data_module.xsd"
+
+    async def load_settings(self) -> Any:
+        """Load settings from the database if available."""
+        if self.db:
+            doc = await self.db.settings.find_one({})
+            if doc:
+                self.settings = SettingsModel(**doc)
+        return self.settings
 
     async def upload_document(
         self, file_data: bytes, filename: str, mime_type: str
@@ -235,6 +245,7 @@ class DocumentService:
     async def process_document_with_ai(
         self, document: UploadedDocument, text_content: str
     ) -> List[DataModule]:
+        await self.load_settings()
         text_provider = ProviderFactory.create_text_provider()
         try:
             classification = TextProcessingRequest(
