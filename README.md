@@ -107,7 +107,16 @@ cp backend/.env.example backend/.env
 # adjust `ACCESS_TOKEN_EXPIRE_MINUTES`.
 # Set `ALLOWED_ORIGINS` to a comma-separated list of allowed origins for CORS.
 ```
+
 The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the local model paths.
+
+### Required System Packages
+The `DocumentService` extracts images from PDFs and performs OCR using `pdf2image` and
+`pytesseract`. Install these utilities so the service can handle PDF image extraction
+and OCR correctly:
+
+- **Poppler utilities** for `pdf2image` (e.g., `apt-get install poppler-utils`)
+- **Tesseract OCR** for `pytesseract` (e.g., `apt-get install tesseract-ocr`)
 
 Finally, start the backend and frontend servers in separate terminals:
 
