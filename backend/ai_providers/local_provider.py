@@ -4,13 +4,13 @@ import os
 import time
 import base64
 import io
+import json
 from typing import Dict, Any, List
 
 from PIL import Image
 import torch
 from torchvision import models, transforms
-from sentence_transformers import SentenceTransformer, util
-import language_tool_python
+from transformers import pipeline
 
 from .base import (
     TextProvider,
@@ -23,41 +23,40 @@ from .base import (
 
 
 class LocalTextProvider(TextProvider):
-    """Local text processing provider leveraging sentence transformers."""
+    """Local text processing provider using a Hugging Face transformer."""
 
     def __init__(self, model: str | None = None):
-        self.model_name = model or os.environ.get("TEXT_MODEL", "all-MiniLM-L6-v2")
-        self.embedder = SentenceTransformer(self.model_name)
-        self.tool = language_tool_python.LanguageTool("en-US")
-        self.dm_descriptions = {
-            "PROC": "Step by step maintenance procedure or instructions",
-            "DESC": "General description or overview of a system",
-            "IPD": "Parts catalog or illustrated parts data",
-            "CIR": "Electrical circuits and wiring information",
-            "SNS": "Service bulletins or service news",
-            "WIR": "Wiring information or harness details",
-            "GEN": "General technical information",
-        }
-        self.label_embeds = {
-            k: self.embedder.encode(v) for k, v in self.dm_descriptions.items()
-        }
+        self.model_name = model or os.environ.get(
+            "TEXT_MODEL",
+            "Goekdeniz-Guelmez/Josiefied-Qwen3-30B-A3B-abliterated-v2",
+        )
+        device = 0 if torch.cuda.is_available() else -1
+        self.generator = pipeline(
+            "text-generation", model=self.model_name, tokenizer=self.model_name, device=device
+        )
+        self.dm_types = ["PROC", "DESC", "IPD", "CIR", "SNS", "WIR", "GEN"]
 
     async def classify_document(self, request: TextProcessingRequest) -> TextProcessingResponse:
-        """Classify document type and extract basic metadata using embeddings."""
+        """Classify document type using the local language model."""
         start_time = time.time()
-        emb = self.embedder.encode(request.text[:1000])
-        sims = {k: float(util.cos_sim(emb, v)) for k, v in self.label_embeds.items()}
-        dm_type = max(sims, key=sims.get)
-        title = request.text.split(".")[0][:50]
-        result = {
-            "dm_type": dm_type,
-            "title": title,
-            "confidence": sims[dm_type],
-            "metadata": {"language": "en-US"},
-        }
+        prompt = (
+            "Classify this text according to S1000D data module types"
+            " (PROC, DESC, IPD, CIR, SNS, WIR, GEN)."
+            " Respond with JSON like {\"dm_type\":..., \"title\":..., \"confidence\":0.9, \"metadata\":{\"language\":\"en-US\"}}.\nText:\n"
+            + request.text[:1000]
+        )
+        output = self.generator(prompt, max_new_tokens=200, do_sample=False)[0]["generated_text"]
+        json_start = output.find("{")
+        json_end = output.rfind("}") + 1
+        try:
+            result = json.loads(output[json_start:json_end])
+            confidence = result.get("confidence", 0.0)
+        except Exception:
+            result = {"dm_type": "GEN", "title": request.text.split(".")[0][:50], "confidence": 0.0, "metadata": {"language": "en-US"}}
+            confidence = 0.0
         return TextProcessingResponse(
             result=result,
-            confidence=sims[dm_type],
+            confidence=confidence,
             processing_time=time.time() - start_time,
             provider="local",
             model_used=self.model_name,
@@ -118,38 +117,30 @@ class LocalTextProvider(TextProvider):
         )
 
     async def rewrite_to_ste(self, request: TextProcessingRequest) -> TextProcessingResponse:
-        """Rewrite text applying language tool suggestions and simple rules."""
+        """Rewrite text to ASD-STE100 using the language model."""
         start_time = time.time()
-        text = request.text
-        matches = self.tool.check(text)
-        corrected = language_tool_python.utils.correct(text, matches)
-        replacements = {
-            "utilize": "use",
-            "approximately": "about",
-            "prior to": "before",
-            "subsequent to": "after",
-        }
-        for k, v in replacements.items():
-            corrected = corrected.replace(k, v)
-        sentences = [s.strip() for s in corrected.split('.') if s.strip()]
-        short_sentences = []
-        for s in sentences:
-            words = s.split()
-            while len(words) > 20:
-                short_sentences.append(" ".join(words[:20]))
-                words = words[20:]
-            short_sentences.append(" ".join(words))
-        ste_text = '. '.join(short_sentences)
-        score = 1.0 - len(matches) / max(len(text.split()), 1)
-        result = {
-            "rewritten_text": ste_text,
-            "ste_score": round(score, 2),
-            "improvements": [m.ruleId for m in matches],
-            "warnings": [],
-        }
+        prompt = (
+            "Rewrite this technical text to comply with ASD-STE100."
+            " Respond in JSON with fields rewritten_text, ste_score, improvements, warnings.\nText:\n"
+            + request.text
+        )
+        output = self.generator(prompt, max_new_tokens=300, do_sample=False)[0]["generated_text"]
+        json_start = output.find("{")
+        json_end = output.rfind("}") + 1
+        try:
+            result = json.loads(output[json_start:json_end])
+            confidence = result.get("ste_score", 0.0)
+        except Exception:
+            result = {
+                "rewritten_text": request.text,
+                "ste_score": 0.0,
+                "improvements": [],
+                "warnings": ["parse_failed"],
+            }
+            confidence = 0.0
         return TextProcessingResponse(
             result=result,
-            confidence=score,
+            confidence=confidence,
             processing_time=time.time() - start_time,
             provider="local",
             model_used=self.model_name,
@@ -157,14 +148,16 @@ class LocalTextProvider(TextProvider):
 
 
 class LocalVisionProvider(VisionProvider):
-    """Local vision processing provider using torchvision object detection."""
+    """Local vision processing provider using torchvision and Hugging Face models."""
 
     def __init__(self, model: str | None = None):
         self.weights = models.detection.FasterRCNN_ResNet50_FPN_Weights.DEFAULT
         self.detector = models.detection.fasterrcnn_resnet50_fpn(weights=self.weights)
         self.detector.eval()
         self.transform = transforms.Compose([transforms.ToTensor()])
-        self.model_name = "fasterrcnn_resnet50_fpn"
+        self.model_name = model or os.environ.get("VISION_MODEL", "Qwen/Qwen-VL-Chat")
+        device = 0 if torch.cuda.is_available() else -1
+        self.captioner = pipeline("image-to-text", model=self.model_name, device=device)
 
     def _predict(self, image: Image.Image):
         tensor = self.transform(image)
@@ -173,17 +166,19 @@ class LocalVisionProvider(VisionProvider):
         return output
 
     async def generate_caption(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
-        """Generate caption summarizing detected objects."""
+        """Generate caption using a local vision-language model."""
         start_time = time.time()
         image_data = base64.b64decode(request.image_data)
         image = Image.open(io.BytesIO(image_data)).convert("RGB")
-        output = self._predict(image)
-        labels = [self.weights.meta['categories'][int(i)] for i in output['labels']]
-        unique = list(dict.fromkeys(labels))[:5]
-        caption = "Image showing " + ", ".join(unique) if unique else "Image"
+        try:
+            caption = self.captioner(image)[0]["generated_text"].strip()
+            confidence = 0.9
+        except Exception as e:
+            caption = f"Error: {e}"
+            confidence = 0.0
         return VisionProcessingResponse(
             caption=caption,
-            confidence=float(output['scores'].max().item()) if len(output['scores']) > 0 else 0.0,
+            confidence=confidence,
             processing_time=time.time() - start_time,
             provider="local",
             model_used=self.model_name,
