@@ -49,6 +49,7 @@ db = client[os.environ['DB_NAME']]
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 ALGORITHM = "HS256"
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -65,7 +66,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS.split(','),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
