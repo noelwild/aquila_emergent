@@ -76,8 +76,10 @@ system_settings = SettingsModel(brex_rules=DEFAULT_BREX_RULES)
 document_service = DocumentService(settings=system_settings)
 
 
-def validate_module_dict(module: Dict[str, Any], rules: Dict[str, Any]) -> Tuple[ValidationStatus, List[str]]:
-    """Validate a data module dictionary against BREX rules."""
+def validate_module_dict(
+    module: Dict[str, Any], rules: Dict[str, Any]
+) -> Tuple[ValidationStatus, List[str], bool, bool]:
+    """Validate a data module dictionary against BREX and XSD rules."""
     errors: List[str] = []
     status = ValidationStatus.GREEN
 
@@ -130,7 +132,22 @@ def validate_module_dict(module: Dict[str, Any], rules: Dict[str, Any]) -> Tuple
         errors.append("Security classification not allowed")
         status = ValidationStatus.RED
 
-    return status, errors
+    brex_valid = len(errors) == 0
+
+    xsd_valid = False
+    try:
+        dm_obj = DataModule(**module)
+        xml_str = document_service.render_data_module_xml(dm_obj)
+        xsd_valid = document_service.validate_xml(xml_str)
+        if not xsd_valid:
+            errors.append("XSD validation failed")
+            status = ValidationStatus.RED
+    except Exception as exc:  # pragma: no cover - best effort
+        errors.append(f"XSD validation error: {exc}")
+        status = ValidationStatus.RED
+        xsd_valid = False
+
+    return status, errors, brex_valid, xsd_valid
 
 # API Endpoints
 
@@ -473,15 +490,12 @@ async def validate_data_module(dmc: str):
             raise HTTPException(404, "Data module not found")
 
         rules = system_settings.brex_rules or DEFAULT_BREX_RULES
-        validation_status, validation_errors = validate_module_dict(module, rules)
-
-        xml_valid = False
-        try:
-            dm_obj = DataModule(**module)
-            xml_str = document_service.render_data_module_xml(dm_obj)
-            xml_valid = document_service.validate_xml(xml_str)
-        except Exception:
-            xml_valid = False
+        (
+            validation_status,
+            validation_errors,
+            brex_valid,
+            xml_valid,
+        ) = validate_module_dict(module, rules)
 
         # Update module validation status
         await db.data_modules.update_one(
@@ -490,15 +504,17 @@ async def validate_data_module(dmc: str):
                 "validation_status": validation_status.value,
                 "validation_errors": validation_errors,
                 "xsd_valid": xml_valid,
+                "brex_valid": brex_valid,
                 "updated_at": datetime.utcnow()
             }}
         )
-        
+
         return {
             "dmc": dmc,
             "status": validation_status.value,
             "errors": validation_errors,
-            "xsd_valid": xml_valid
+            "xsd_valid": xml_valid,
+            "brex_valid": brex_valid
         }
     except Exception as e:
         logger.error(f"Error validating data module: {str(e)}")
