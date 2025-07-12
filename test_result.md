@@ -177,6 +177,42 @@ backend:
         agent: "main"
         comment: "Added TEXT_MODEL and VISION_MODEL variables to allow selecting models from the UI"
 
+  - task: "S1000D XML Export"
+    implemented: true
+    working: true
+    file: "backend/services/document_service.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added Jinja2 template rendering and export endpoint"
+
+  - task: "XSD Validation Service"
+    implemented: true
+    working: true
+    file: "backend/services/document_service.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Implemented XML validation using xmlschema"
+
+  - task: "DMC Generation Policy"
+    implemented: true
+    working: true
+    file: "backend/models/base.py"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added configurable defaults in settings and updated generation"
+
 frontend:
   - task: "Dark Theme UI Framework"
     implemented: true
@@ -352,7 +388,7 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 3
+  test_sequence: 4
   run_ui: true
 
 test_plan:
@@ -432,3 +468,5 @@ agent_communication:
     All backend APIs are functioning as expected with no major issues. The system successfully integrates with both OpenAI and Anthropic AI providers."
   - agent: "main"
     message: "Implemented DOCX text extraction with python-docx and PDF image extraction with pdf2image; added unit tests."
+  - agent: "main"
+    message: "Added XML export template, XSD validation and configurable DMC generation."

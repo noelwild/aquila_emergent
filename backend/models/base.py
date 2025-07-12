@@ -62,5 +62,20 @@ class SettingsModel(BaseDocument):
     security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
     default_language: str = "en-US"
     dmc_policy: str = "default"
+    dmc_defaults: Dict[str, Any] = {
+        "model_ident": "AQUILA",
+        "system_diff": "00",
+        "system_code": "000",
+        "sub_system_code": "00",
+        "sub_sub_system_code": "00",
+        "assy_code": "00",
+        "disassy_code": "00",
+        "disassy_code_variant": "00",
+        "info_code": "000",
+        "info_code_variant": "A",
+        "item_location_code": "A",
+        "learn_code": "00",
+        "learn_event_code": "00",
+    }
     brex_rules: Dict[str, Any] = {}
     templates: Dict[str, Any] = {}

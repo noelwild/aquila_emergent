@@ -11,6 +11,8 @@ from openpyxl import load_workbook
 from PIL import Image
 from docx import Document
 from pdf2image import convert_from_path
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+import xmlschema
 import io
 import asyncio
 import uuid
@@ -25,11 +27,15 @@ from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
 class DocumentService:
     """Service for document processing and management."""
 
-    def __init__(self, upload_path: str = "/tmp/aquila_uploads"):
+    def __init__(self, upload_path: str = "/tmp/aquila_uploads", settings: Any | None = None):
         self.upload_path = Path(upload_path)
         self.upload_path.mkdir(parents=True, exist_ok=True)
         self.icn_path = self.upload_path / "icns"
         self.icn_path.mkdir(parents=True, exist_ok=True)
+        self.settings = settings
+        backend_root = Path(__file__).resolve().parent.parent
+        self.templates_path = backend_root / "templates"
+        self.schema_path = backend_root / "schemas" / "simple_data_module.xsd"
 
     async def upload_document(self, file_data: bytes, filename: str, mime_type: str) -> UploadedDocument:
         """Upload and store a document."""
@@ -268,19 +274,20 @@ class DocumentService:
             return [basic]
 
     def _generate_dmc(self, classification_result: dict, variant: str = "00") -> str:
-        model_ident = "AQUILA"
-        system_diff = "00"
-        system_code = "000"
-        sub_system_code = "00"
-        sub_sub_system_code = "00"
-        assy_code = "00"
-        disassy_code = "00"
-        disassy_code_variant = "00"
-        info_code = "000"
-        info_code_variant = "A"
-        item_location_code = "A"
-        learn_code = "00"
-        learn_event_code = "00"
+        cfg = (self.settings.dmc_defaults if self.settings else {})
+        model_ident = cfg.get("model_ident", "AQUILA")
+        system_diff = cfg.get("system_diff", "00")
+        system_code = cfg.get("system_code", "000")
+        sub_system_code = cfg.get("sub_system_code", "00")
+        sub_sub_system_code = cfg.get("sub_sub_system_code", "00")
+        assy_code = cfg.get("assy_code", "00")
+        disassy_code = cfg.get("disassy_code", "00")
+        disassy_code_variant = cfg.get("disassy_code_variant", "00")
+        info_code = cfg.get("info_code", "000")
+        info_code_variant = cfg.get("info_code_variant", "A")
+        item_location_code = cfg.get("item_location_code", "A")
+        learn_code = cfg.get("learn_code", "00")
+        learn_event_code = cfg.get("learn_event_code", "00")
         return (
             f"DMC-{model_ident}-{system_diff}-{system_code}-{sub_system_code}-"
             f"{sub_sub_system_code}-{assy_code}-{disassy_code}-{disassy_code_variant}-"
@@ -308,4 +315,21 @@ class DocumentService:
             print(f"Error processing image with AI: {e}")
             icn.caption = f"Error processing image: {e}"
             return icn
+
+    def render_data_module_xml(self, module: DataModule) -> str:
+        """Render a DataModule to XML using Jinja2 template."""
+        env = Environment(
+            loader=FileSystemLoader(str(self.templates_path)),
+            autoescape=select_autoescape(["xml"]),
+        )
+        template = env.get_template("data_module.xml.j2")
+        return template.render(module=module)
+
+    def validate_xml(self, xml_str: str) -> bool:
+        """Validate XML string against built-in XSD."""
+        try:
+            schema = xmlschema.XMLSchema(self.schema_path)
+            return schema.is_valid(xml_str)
+        except Exception:
+            return False
 
