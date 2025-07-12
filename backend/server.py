@@ -131,6 +131,17 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 
+def require_role(required: str):
+    async def _require(current_user: User = Depends(get_current_active_user)) -> User:
+        if required not in current_user.roles:
+            raise HTTPException(status_code=403, detail="Insufficient privileges")
+        return current_user
+    return _require
+
+
+require_admin = require_role("admin")
+
+
 auth_router = APIRouter(prefix="/auth")
 
 
@@ -139,7 +150,7 @@ async def register_user(username: str = Form(...), password: str = Form(...)):
     if await db.users.find_one({"username": username}):
         raise HTTPException(400, "Username already exists")
     hashed = get_password_hash(password)
-    user = User(username=username, hashed_password=hashed)
+    user = User(username=username, hashed_password=hashed, roles=["user"])
     await db.users.insert_one(user.dict())
     return {"message": "User registered"}
 
@@ -317,7 +328,13 @@ async def get_providers():
     }
 
 @api_router.post("/providers/set")
-async def set_providers(text_provider: str, vision_provider: str, text_model: str | None = None, vision_model: str | None = None):
+async def set_providers(
+    text_provider: str,
+    vision_provider: str,
+    text_model: str | None = None,
+    vision_model: str | None = None,
+    _: User = Depends(require_admin),
+):
     """Set AI providers."""
     try:
         # Validate providers
@@ -660,7 +677,11 @@ async def get_publication_module(pm_code: str):
         raise HTTPException(500, f"Error fetching publication module: {str(e)}")
 
 @api_router.post("/publication-modules/{pm_code}/publish")
-async def publish_publication_module(pm_code: str, publish_options: Dict[str, Any]):
+async def publish_publication_module(
+    pm_code: str,
+    publish_options: Dict[str, Any],
+    _: User = Depends(require_admin),
+):
     """Publish a publication module."""
     try:
         pm = await db.publication_modules.find_one({"pm_code": pm_code})

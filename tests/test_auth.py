@@ -21,8 +21,20 @@ class FakeUserCollection:
     async def insert_one(self, data):
         self.store[data["username"]] = data
 
+    async def update_one(self, query, update):
+        user = self.store.get(query.get("username"))
+        if user:
+            user.update(update.get("$set", {}))
+            return types.SimpleNamespace(matched_count=1)
+        return types.SimpleNamespace(matched_count=0)
 
-server.db = types.SimpleNamespace(users=FakeUserCollection())
+
+class FakeSettingsCollection:
+    async def find_one(self, query):
+        return {"id": "s", "brex_rules": {}}
+
+
+server.db = types.SimpleNamespace(users=FakeUserCollection(), settings=FakeSettingsCollection())
 client = TestClient(server.app)
 
 
@@ -30,6 +42,7 @@ def test_register_and_login():
     # register new user
     resp = client.post("/auth/register", data={"username": "alice", "password": "secret"})
     assert resp.status_code == 200
+    assert server.db.users.store["alice"]["roles"] == ["user"]
 
     # obtain token
     resp = client.post("/auth/token", data={"username": "alice", "password": "secret"})
