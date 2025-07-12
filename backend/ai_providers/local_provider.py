@@ -1,206 +1,227 @@
-"""Local provider implementation (placeholder for local models)."""
+"""Local provider implementation using local ML models."""
 
+import os
 import time
-from typing import Dict, Any, List
-from .base import TextProvider, VisionProvider, TextProcessingRequest, TextProcessingResponse
-from .base import VisionProcessingRequest, VisionProcessingResponse
-import json
 import base64
+import io
+from typing import Dict, Any, List
+
+from PIL import Image
+import torch
+from torchvision import models, transforms
+from sentence_transformers import SentenceTransformer, util
+import language_tool_python
+
+from .base import (
+    TextProvider,
+    VisionProvider,
+    TextProcessingRequest,
+    TextProcessingResponse,
+    VisionProcessingRequest,
+    VisionProcessingResponse,
+)
 
 
 class LocalTextProvider(TextProvider):
-    """Local text processing provider (mock implementation)."""
+    """Local text processing provider leveraging sentence transformers."""
 
     def __init__(self, model: str | None = None):
-        self.model = model or os.environ.get("TEXT_MODEL", "local-qwen3-30b")
-    
+        self.model_name = model or os.environ.get("TEXT_MODEL", "all-MiniLM-L6-v2")
+        self.embedder = SentenceTransformer(self.model_name)
+        self.tool = language_tool_python.LanguageTool("en-US")
+        self.dm_descriptions = {
+            "PROC": "Step by step maintenance procedure or instructions",
+            "DESC": "General description or overview of a system",
+            "IPD": "Parts catalog or illustrated parts data",
+            "CIR": "Electrical circuits and wiring information",
+            "SNS": "Service bulletins or service news",
+            "WIR": "Wiring information or harness details",
+            "GEN": "General technical information",
+        }
+        self.label_embeds = {
+            k: self.embedder.encode(v) for k, v in self.dm_descriptions.items()
+        }
+
     async def classify_document(self, request: TextProcessingRequest) -> TextProcessingResponse:
-        """Classify document type and extract basic metadata."""
+        """Classify document type and extract basic metadata using embeddings."""
         start_time = time.time()
-        
-        # Mock classification based on text content
-        text_lower = request.text.lower()
-        if "procedure" in text_lower or "step" in text_lower or "instruction" in text_lower:
-            dm_type = "PROC"
-        elif "description" in text_lower or "overview" in text_lower or "general" in text_lower:
-            dm_type = "DESC"
-        elif "part" in text_lower or "component" in text_lower or "assembly" in text_lower:
-            dm_type = "IPD"
-        elif "circuit" in text_lower or "electrical" in text_lower or "wiring" in text_lower:
-            dm_type = "CIR"
-        elif "notice" in text_lower or "service" in text_lower or "bulletin" in text_lower:
-            dm_type = "SNS"
-        elif "wire" in text_lower or "cable" in text_lower or "harness" in text_lower:
-            dm_type = "WIR"
-        else:
-            dm_type = "GEN"
-        
-        # Extract title (first sentence or first 50 characters)
-        title = request.text.split('.')[0][:50] if '.' in request.text else request.text[:50]
-        
+        emb = self.embedder.encode(request.text[:1000])
+        sims = {k: float(util.cos_sim(emb, v)) for k, v in self.label_embeds.items()}
+        dm_type = max(sims, key=sims.get)
+        title = request.text.split(".")[0][:50]
         result = {
             "dm_type": dm_type,
             "title": title,
-            "confidence": 0.8,
-            "metadata": {
-                "language": "en-US",
-                "technical_domain": "general",
-                "complexity": "intermediate"
-            }
+            "confidence": sims[dm_type],
+            "metadata": {"language": "en-US"},
         }
-        
-        processing_time = time.time() - start_time
-        
         return TextProcessingResponse(
             result=result,
-            confidence=result["confidence"],
-            processing_time=processing_time,
+            confidence=sims[dm_type],
+            processing_time=time.time() - start_time,
             provider="local",
-            model_used=self.model
+            model_used=self.model_name,
         )
-    
+
     async def extract_structured_data(self, request: TextProcessingRequest) -> TextProcessingResponse:
-        """Extract structured data from text."""
+        """Extract simple sections and references from text."""
         start_time = time.time()
-        
-        # Mock structured extraction
-        paragraphs = request.text.split('\n\n')
-        sections = []
-        for i, para in enumerate(paragraphs[:5]):  # Limit to first 5 paragraphs
-            if para.strip():
+        lines = request.text.splitlines()
+        sections: List[Dict[str, Any]] = []
+        current = []
+        for line in lines:
+            if not line.strip():
+                if current:
+                    sections.append({
+                        "type": "paragraph",
+                        "title": f"Section {len(sections)+1}",
+                        "content": " ".join(current),
+                        "level": 1,
+                    })
+                    current = []
+                continue
+            if line.lstrip().startswith(('-', '*', '+')):
                 sections.append({
-                    "type": "paragraph",
-                    "title": f"Section {i+1}",
-                    "content": para.strip()[:200],
-                    "level": 1
+                    "type": "list",
+                    "title": f"List {len(sections)+1}",
+                    "content": line.strip(),
+                    "level": 1,
                 })
-        
+            else:
+                current.append(line.strip())
+        if current:
+            sections.append({
+                "type": "paragraph",
+                "title": f"Section {len(sections)+1}",
+                "content": " ".join(current),
+                "level": 1,
+            })
+        refs = []
+        for line in lines:
+            if "Figure" in line:
+                refs.append({"type": "figure", "reference": line.strip(), "title": ""})
+            if "DMC-" in line:
+                refs.append({"type": "dm", "reference": line.strip(), "title": ""})
         result = {
             "sections": sections,
-            "references": [],
+            "references": refs,
             "warnings": [],
             "cautions": [],
-            "notes": []
+            "notes": [],
         }
-        
-        processing_time = time.time() - start_time
-        
         return TextProcessingResponse(
             result=result,
             confidence=0.75,
-            processing_time=processing_time,
+            processing_time=time.time() - start_time,
             provider="local",
-            model_used=self.model
+            model_used=self.model_name,
         )
-    
+
     async def rewrite_to_ste(self, request: TextProcessingRequest) -> TextProcessingResponse:
-        """Rewrite text to ASD-STE100 compliance."""
+        """Rewrite text applying language tool suggestions and simple rules."""
         start_time = time.time()
-        
-        # Mock STE rewriting (simplified version)
-        original_text = request.text
-        
-        # Basic STE transformations
-        ste_text = original_text.replace("utilize", "use")
-        ste_text = ste_text.replace("approximately", "about")
-        ste_text = ste_text.replace("prior to", "before")
-        ste_text = ste_text.replace("in order to", "to")
-        ste_text = ste_text.replace("subsequent to", "after")
-        
-        # Simple sentence shortening
-        sentences = ste_text.split('.')
+        text = request.text
+        matches = self.tool.check(text)
+        corrected = language_tool_python.utils.correct(text, matches)
+        replacements = {
+            "utilize": "use",
+            "approximately": "about",
+            "prior to": "before",
+            "subsequent to": "after",
+        }
+        for k, v in replacements.items():
+            corrected = corrected.replace(k, v)
+        sentences = [s.strip() for s in corrected.split('.') if s.strip()]
         short_sentences = []
-        for sentence in sentences:
-            if len(sentence.split()) > 20:
-                # Split long sentences
-                words = sentence.split()
-                for i in range(0, len(words), 15):
-                    short_sentences.append(' '.join(words[i:i+15]))
-            else:
-                short_sentences.append(sentence)
-        
+        for s in sentences:
+            words = s.split()
+            while len(words) > 20:
+                short_sentences.append(" ".join(words[:20]))
+                words = words[20:]
+            short_sentences.append(" ".join(words))
         ste_text = '. '.join(short_sentences)
-        
+        score = 1.0 - len(matches) / max(len(text.split()), 1)
         result = {
             "rewritten_text": ste_text,
-            "ste_score": 0.85,
-            "improvements": ["Simplified vocabulary", "Shortened sentences"],
-            "warnings": []
+            "ste_score": round(score, 2),
+            "improvements": [m.ruleId for m in matches],
+            "warnings": [],
         }
-        
-        processing_time = time.time() - start_time
-        
         return TextProcessingResponse(
             result=result,
-            confidence=result["ste_score"],
-            processing_time=processing_time,
+            confidence=score,
+            processing_time=time.time() - start_time,
             provider="local",
-            model_used=self.model
+            model_used=self.model_name,
         )
 
 
 class LocalVisionProvider(VisionProvider):
-    """Local vision processing provider (mock implementation)."""
+    """Local vision processing provider using torchvision object detection."""
 
     def __init__(self, model: str | None = None):
-        self.model = model or os.environ.get("VISION_MODEL", "local-idefics2-8b")
-    
+        self.weights = models.detection.FasterRCNN_ResNet50_FPN_Weights.DEFAULT
+        self.detector = models.detection.fasterrcnn_resnet50_fpn(weights=self.weights)
+        self.detector.eval()
+        self.transform = transforms.Compose([transforms.ToTensor()])
+        self.model_name = "fasterrcnn_resnet50_fpn"
+
+    def _predict(self, image: Image.Image):
+        tensor = self.transform(image)
+        with torch.no_grad():
+            output = self.detector([tensor])[0]
+        return output
+
     async def generate_caption(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
-        """Generate caption for image."""
+        """Generate caption summarizing detected objects."""
         start_time = time.time()
-        
-        # Mock caption generation
-        caption = "Technical diagram showing mechanical components and assembly details"
-        
-        processing_time = time.time() - start_time
-        
+        image_data = base64.b64decode(request.image_data)
+        image = Image.open(io.BytesIO(image_data)).convert("RGB")
+        output = self._predict(image)
+        labels = [self.weights.meta['categories'][int(i)] for i in output['labels']]
+        unique = list(dict.fromkeys(labels))[:5]
+        caption = "Image showing " + ", ".join(unique) if unique else "Image"
         return VisionProcessingResponse(
             caption=caption,
-            confidence=0.70,
-            processing_time=processing_time,
+            confidence=float(output['scores'].max().item()) if len(output['scores']) > 0 else 0.0,
+            processing_time=time.time() - start_time,
             provider="local",
-            model_used=self.model
+            model_used=self.model_name,
         )
-    
+
     async def detect_objects(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
-        """Detect objects in image."""
         start_time = time.time()
-        
-        # Mock object detection
-        objects = [
-            "mechanical component",
-            "assembly part",
-            "technical drawing",
-            "measurement annotation"
-        ]
-        
-        processing_time = time.time() - start_time
-        
+        image_data = base64.b64decode(request.image_data)
+        image = Image.open(io.BytesIO(image_data)).convert("RGB")
+        output = self._predict(image)
+        labels = [self.weights.meta['categories'][int(i)] for i in output['labels']]
         return VisionProcessingResponse(
-            objects=objects,
-            confidence=0.65,
-            processing_time=processing_time,
+            objects=labels,
+            confidence=float(output['scores'].max().item()) if len(output['scores']) > 0 else 0.0,
+            processing_time=time.time() - start_time,
             provider="local",
-            model_used=self.model
+            model_used=self.model_name,
         )
-    
+
     async def generate_hotspots(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
-        """Generate hotspot suggestions."""
         start_time = time.time()
-        
-        # Mock hotspot generation
-        hotspots = [
-            {"x": 100, "y": 150, "width": 50, "height": 30, "description": "Main component"},
-            {"x": 200, "y": 250, "width": 40, "height": 25, "description": "Secondary part"},
-            {"x": 300, "y": 100, "width": 60, "height": 35, "description": "Assembly point"}
-        ]
-        
-        processing_time = time.time() - start_time
-        
+        image_data = base64.b64decode(request.image_data)
+        image = Image.open(io.BytesIO(image_data)).convert("RGB")
+        output = self._predict(image)
+        hotspots = []
+        for box, label in zip(output['boxes'], output['labels']):
+            x1, y1, x2, y2 = [int(v) for v in box.tolist()]
+            hotspots.append({
+                "x": x1,
+                "y": y1,
+                "width": x2 - x1,
+                "height": y2 - y1,
+                "description": self.weights.meta['categories'][int(label)],
+            })
         return VisionProcessingResponse(
             hotspots=hotspots,
-            confidence=0.60,
-            processing_time=processing_time,
+            confidence=float(output['scores'].max().item()) if len(output['scores']) > 0 else 0.0,
+            processing_time=time.time() - start_time,
             provider="local",
-            model_used=self.model
+            model_used=self.model_name,
         )
