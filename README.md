@@ -96,7 +96,8 @@ Copy the sample environment file and supply your own API keys:
 cp backend/.env.example backend/.env
 # Edit `backend/.env` and provide values for `OPENAI_API_KEY`,
 # `ANTHROPIC_API_KEY`, `STRIPE_API_KEY` (optional) and any database
-# settings like `MONGO_URL`.
+# settings like `MONGO_URL`. Set `TEXT_MODEL` and
+# `VISION_MODEL` to choose the default models.
 ```
 The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the default models.
 
