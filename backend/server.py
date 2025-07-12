@@ -691,13 +691,16 @@ async def publish_publication_module(
         pm_obj = PublicationModule(**pm)
         formats = publish_options.get("formats", ["xml"])
         variants = publish_options.get("variants", ["verbatim"])
-        package_path = await document_service.publish_publication_module(
+        publish_result = await document_service.publish_publication_module(
             pm_obj, db, formats=formats, variants=variants
         )
+        package_path = publish_result["package"]
+        errors = publish_result.get("errors", [])
         return {
             "message": "Publication module published successfully",
             "pm_code": pm_code,
             "package": str(package_path),
+            "errors": errors,
             "formats": formats,
             "variants": variants,
         }
