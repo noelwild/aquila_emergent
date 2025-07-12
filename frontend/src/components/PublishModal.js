@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useAquila } from '../contexts/AquilaContext';
 import { X, Download, Settings, FileText, Image, Package } from 'lucide-react';
 
-const PublishModal = ({ onClose }) => {
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const PublishModal = ({ onClose, pmCode }) => {
   const { dataModules, icns } = useAquila();
   const [publishConfig, setPublishConfig] = useState({
     variants: ['verbatim', 'ste'],
@@ -23,41 +24,35 @@ const PublishModal = ({ onClose }) => {
     setPublishResult(null);
 
     try {
-      // Filter data modules based on scope
-      let modulesToPublish = dataModules;
-      if (publishConfig.scope === 'all-green') {
-        modulesToPublish = dataModules.filter(dm => dm.validation_status === 'green');
-      } else if (publishConfig.scope === 'current') {
-        // Would need to implement current module selection
-        modulesToPublish = dataModules.slice(0, 1); // Placeholder
+      const response = await fetch(
+        `${BACKEND_URL}/api/publication-modules/${pmCode}/publish`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            formats: publishConfig.formats,
+            variants: publishConfig.variants
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Server error ${response.status}`);
       }
-
-      // Simulate publishing process
-      const result = {
-        success: true,
-        modulesPublished: modulesToPublish.length,
-        illustrationsIncluded: publishConfig.includeIllustrations ? icns.length : 0,
-        formats: publishConfig.formats,
-        variants: publishConfig.variants,
-        packageSize: '45.2 MB',
-        downloadUrl: '/download/publication-package.zip'
-      };
-
-      setPublishResult(result);
+      const result = await response.json();
+      setPublishResult({ success: true, ...result });
     } catch (error) {
       console.error('Error publishing:', error);
-      setPublishResult({
-        success: false,
-        error: error.message
-      });
+      setPublishResult({ success: false, error: error.message });
     } finally {
       setPublishing(false);
     }
   };
 
   const handleDownload = () => {
-    // Implement download functionality
-    console.log('Downloading publication package...');
+    if (publishResult?.package) {
+      window.open(publishResult.package, '_blank');
+    }
   };
 
   const getModuleCount = () => {

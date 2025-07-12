@@ -20,7 +20,13 @@ import asyncio
 import uuid
 import re
 
-from ..models.document import UploadedDocument, ICN, DataModule, ProcessingTask, PublicationModule
+from ..models.document import (
+    UploadedDocument,
+    ICN,
+    DataModule,
+    ProcessingTask,
+    PublicationModule,
+)
 from ..models.base import DMTypeEnum
 from ..ai_providers.provider_factory import ProviderFactory
 from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
@@ -29,7 +35,9 @@ from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
 class DocumentService:
     """Service for document processing and management."""
 
-    def __init__(self, upload_path: str = "/tmp/aquila_uploads", settings: Any | None = None):
+    def __init__(
+        self, upload_path: str = "/tmp/aquila_uploads", settings: Any | None = None
+    ):
         self.upload_path = Path(upload_path)
         self.upload_path.mkdir(parents=True, exist_ok=True)
         self.icn_path = self.upload_path / "icns"
@@ -41,7 +49,9 @@ class DocumentService:
         self.templates_path = backend_root / "templates"
         self.schema_path = backend_root / "schemas" / "simple_data_module.xsd"
 
-    async def upload_document(self, file_data: bytes, filename: str, mime_type: str) -> UploadedDocument:
+    async def upload_document(
+        self, file_data: bytes, filename: str, mime_type: str
+    ) -> UploadedDocument:
         """Upload and store a document."""
         sha256_hash = hashlib.sha256(file_data).hexdigest()
         file_id = str(uuid.uuid4())
@@ -65,11 +75,20 @@ class DocumentService:
         try:
             if document.mime_type == "application/pdf":
                 return await self._extract_pdf_text(fp)
-            if document.mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            if (
+                document.mime_type
+                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ):
                 return await self._extract_docx_text(fp)
-            if document.mime_type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+            if (
+                document.mime_type
+                == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            ):
                 return await self._extract_pptx_text(fp)
-            if document.mime_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+            if (
+                document.mime_type
+                == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ):
                 return await self._extract_xlsx_text(fp)
             if document.mime_type.startswith("text/"):
                 return await self._extract_plain_text(fp)
@@ -137,7 +156,9 @@ class DocumentService:
             return match.group(1).upper()
         return f"LCN-{uuid.uuid4().hex[:8].upper()}"
 
-    async def extract_images_from_document(self, document: UploadedDocument) -> List[ICN]:
+    async def extract_images_from_document(
+        self, document: UploadedDocument
+    ) -> List[ICN]:
         if document.mime_type == "application/pdf":
             return await self._extract_pdf_images(document)
         if document.mime_type.startswith("image/"):
@@ -214,10 +235,14 @@ class DocumentService:
             print(f"Error processing image: {e}")
             return []
 
-    async def process_document_with_ai(self, document: UploadedDocument, text_content: str) -> List[DataModule]:
+    async def process_document_with_ai(
+        self, document: UploadedDocument, text_content: str
+    ) -> List[DataModule]:
         text_provider = ProviderFactory.create_text_provider()
         try:
-            classification = TextProcessingRequest(text=text_content, task_type="classify")
+            classification = TextProcessingRequest(
+                text=text_content, task_type="classify"
+            )
             class_response = await text_provider.classify_document(classification)
             if "error" in class_response.result:
                 raise Exception(class_response.result["error"])
@@ -229,7 +254,11 @@ class DocumentService:
 
             refs = extract_res.result.get("references", [])
             dm_refs = [r["reference"] for r in refs if r.get("type") == "dm"]
-            icn_refs = [self._derive_lcn(r["reference"]) for r in refs if r.get("type") in {"figure", "image", "table"}]
+            icn_refs = [
+                self._derive_lcn(r["reference"])
+                for r in refs
+                if r.get("type") in {"figure", "image", "table"}
+            ]
 
             verbatim = DataModule(
                 dmc=self._generate_dmc(class_response.result),
@@ -278,7 +307,7 @@ class DocumentService:
             return [basic]
 
     def _generate_dmc(self, classification_result: dict, variant: str = "00") -> str:
-        cfg = (self.settings.dmc_defaults if self.settings else {})
+        cfg = self.settings.dmc_defaults if self.settings else {}
         model_ident = cfg.get("model_ident", "AQUILA")
         system_diff = cfg.get("system_diff", "00")
         system_code = cfg.get("system_code", "000")
@@ -305,11 +334,17 @@ class DocumentService:
             async with aiofiles.open(icn.file_path, "rb") as f:
                 image_data = await f.read()
             image_base64 = base64.b64encode(image_data).decode("utf-8")
-            caption_req = VisionProcessingRequest(image_data=image_base64, task_type="caption")
+            caption_req = VisionProcessingRequest(
+                image_data=image_base64, task_type="caption"
+            )
             caption_res = await vision_provider.generate_caption(caption_req)
-            objects_req = VisionProcessingRequest(image_data=image_base64, task_type="objects")
+            objects_req = VisionProcessingRequest(
+                image_data=image_base64, task_type="objects"
+            )
             objects_res = await vision_provider.detect_objects(objects_req)
-            hotspots_req = VisionProcessingRequest(image_data=image_base64, task_type="hotspots")
+            hotspots_req = VisionProcessingRequest(
+                image_data=image_base64, task_type="hotspots"
+            )
             hotspots_res = await vision_provider.generate_hotspots(hotspots_req)
             icn.caption = caption_res.caption
             icn.objects = objects_res.objects
@@ -345,7 +380,9 @@ class DocumentService:
         variants: List[str],
     ) -> Path:
         """Compile a publication module into an export package."""
-        modules = await db.data_modules.find({"dmc": {"$in": pm.dm_list}}).to_list(len(pm.dm_list))
+        modules = await db.data_modules.find({"dmc": {"$in": pm.dm_list}}).to_list(
+            len(pm.dm_list)
+        )
         if not modules:
             raise ValueError("No data modules found for publication")
 
@@ -353,32 +390,38 @@ class DocumentService:
         pm_dir.mkdir(parents=True, exist_ok=True)
 
         package_files: List[Path] = []
+        env = Environment(loader=FileSystemLoader(str(self.templates_path)))
+        html_template = env.get_template("data_module.html.j2")
+
         for mod_data in modules:
             dm = DataModule(**mod_data)
             if dm.info_variant not in variants:
                 continue
 
-            xml_str = self.render_data_module_xml(dm)
-            xml_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.xml"
-            async with aiofiles.open(xml_path, "w") as f:
-                await f.write(xml_str)
-            package_files.append(xml_path)
+            try:
+                xml_str = self.render_data_module_xml(dm)
+                xml_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.xml"
+                async with aiofiles.open(xml_path, "w") as f:
+                    await f.write(xml_str)
+                package_files.append(xml_path)
 
-            if "html" in formats:
-                html_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.html"
-                env = Environment(loader=FileSystemLoader(str(self.templates_path)))
-                html_template = env.get_template("data_module.html.j2")
-                html_content = html_template.render(module=dm)
-                async with aiofiles.open(html_path, "w") as f:
-                    await f.write(html_content)
-                package_files.append(html_path)
+                if "html" in formats:
+                    html_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.html"
+                    html_content = html_template.render(module=dm)
+                    async with aiofiles.open(html_path, "w") as f:
+                        await f.write(html_content)
+                    package_files.append(html_path)
 
-            if "pdf" in formats:
-                pdf_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.pdf"
-                doc = SimpleDocTemplate(str(pdf_path))
-                doc.build([Paragraph(dm.content)])
-                package_files.append(pdf_path)
+                if "pdf" in formats:
+                    pdf_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.pdf"
+                    doc = SimpleDocTemplate(str(pdf_path))
+                    doc.build([Paragraph(dm.content)])
+                    package_files.append(pdf_path)
+            except Exception as e:  # pragma: no cover - best effort logging
+                print(f"Failed to export {dm.dmc}: {e}")
+
+        if not package_files:
+            raise ValueError("No files generated for publication module")
 
         zip_path = shutil.make_archive(str(pm_dir), "zip", pm_dir)
         return Path(zip_path)
-
