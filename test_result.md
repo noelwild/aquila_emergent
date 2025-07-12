@@ -470,3 +470,5 @@ agent_communication:
     message: "Implemented DOCX text extraction with python-docx and PDF image extraction with pdf2image; added unit tests."
   - agent: "main"
     message: "Added XML export template, XSD validation and configurable DMC generation."
+- agent: "main"
+  message: "Added automatic hotspot sync for ICN updates."
