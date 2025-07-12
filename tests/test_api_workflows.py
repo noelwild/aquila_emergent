@@ -29,13 +29,6 @@ class FakeUserCollection:
             return types.SimpleNamespace(matched_count=1)
         return types.SimpleNamespace(matched_count=0)
 
-    async def update_one(self, query, update):
-        user = self.store.get(query.get("username"))
-        if user:
-            user.update(update.get("$set", {}))
-            return types.SimpleNamespace(matched_count=1)
-        return types.SimpleNamespace(matched_count=0)
-
 class FakeCursor:
     def __init__(self, docs):
         self.docs = docs

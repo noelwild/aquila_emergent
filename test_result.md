@@ -135,14 +135,6 @@ backend:
         agent: "testing"
         comment: "Successfully tested provider switching between OpenAI and Anthropic. Both providers are properly configured with the provided API keys. Text processing (classify, extract, rewrite) and vision processing (caption, objects, hotspots) endpoints are working correctly."
 
-  - task: "true
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "Document upload, text extraction (PDF, DOCX, PPTX, XLSX), image processing, and AI integration for data module generation"
-      - working: true
-        agent: "testing"
-        comment: "Document upload and processing endpoints are working correctly. Successfully uploaded a test image and processed it to generate data modules and ICNs."
 
   - task: "Data Models"
     implemented: true
