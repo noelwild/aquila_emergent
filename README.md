@@ -102,8 +102,9 @@ cp backend/.env.example backend/.env
 # `Goekdeniz-Guelmez/Josiefied-Qwen3-30B-A3B-abliterated-v2` for `TEXT_MODEL`
 # and `Qwen/Qwen-VL-Chat` for `VISION_MODEL`. These models will be downloaded
 # automatically from Hugging Face on first use.
-# Set `SECRET_KEY` to a random string for signing authentication tokens and
-# optionally adjust `ACCESS_TOKEN_EXPIRE_MINUTES`.
+# Set `SECRET_KEY` to a strong random string for signing authentication tokens.
+# The server will refuse to start if this value is not provided. Optionally
+# adjust `ACCESS_TOKEN_EXPIRE_MINUTES`.
 # Set `ALLOWED_ORIGINS` to a comma-separated list of allowed origins for CORS.
 ```
 The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the local model paths.

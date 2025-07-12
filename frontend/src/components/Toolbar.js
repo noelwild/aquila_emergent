@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAquila } from '../contexts/AquilaContext';
 import { 
   Upload, 
   Trash2, 
@@ -15,6 +16,7 @@ import {
 
 const Toolbar = () => {
   const navigate = useNavigate();
+  const { uploadDocument } = useAquila();
   const [processing, setProcessing] = useState(false);
   const [globalLEDStatus, setGlobalLEDStatus] = useState('green');
   const [showAIProviderModal, setShowAIProviderModal] = useState(false);
@@ -22,21 +24,22 @@ const Toolbar = () => {
 
   const handleUpload = async (event) => {
     const files = Array.from(event.target.files);
-    console.log('Files selected:', files);
-    // Handle file upload logic here
+    for (const file of files) {
+      await uploadDocument(file);
+    }
     event.target.value = '';
   };
 
   const handleDelete = () => {
-    console.log('Delete clicked');
+    /* TODO: implement delete action */
   };
 
   const handleLock = () => {
-    console.log('Lock clicked');
+    /* TODO: implement lock action */
   };
 
   const handleDownload = () => {
-    console.log('Download clicked');
+    /* TODO: implement download action */
   };
 
   const getLEDClassName = (status) => {
