@@ -14,6 +14,11 @@ Aquila follows the S1000D specification for data and publication modules, enabli
 - **Illustrations** – manage ICNs with captioning, object detection and hotspot suggestions
 - **Publication Modules** – drag-and-drop builder with export options (XML, HTML, PDF)
 - **Provider Switching** – dynamically select OpenAI, Anthropic or local models for text and vision tasks
+- **Authentication** – register users and secure API access with JWT tokens
+- **Module Validation** – verify data modules against BREX and XSD rules
+- **BREX Rules API** – download the built-in rule set or store custom rules
+- **Provider Testing** – endpoints to test text and vision models
+- **Data Export** – download XML or PDF packages directly from the API
 
 ## Project Scope
 The goal of Aquila S1000D-AI is to provide a comprehensive reference implementation for an AI-assisted document processing pipeline. The system aims to ingest a variety of legacy formats – such as PDF, Microsoft Office files, and plain text – and transform them into structured S1000D data modules. Computer vision is used to identify and caption images, while natural language models classify document sections and rewrite text into Simplified Technical English (STE). Editors built into the web interface allow authors to review and adjust the AI output. Publication modules organize data modules into a hierarchical tree, after which the entire project can be exported as XML, HTML, or PDF packages. A key architectural feature is the AI provider factory that supports multiple vendor back ends. The current implementation can use OpenAI or Anthropic models with API keys supplied via environment variables, and it also supports local inference via Hugging Face models for environments without network access. This design ensures that organizations can adapt the system to whichever AI providers best meet their needs without altering the rest of the codebase.
@@ -40,6 +45,11 @@ The backend resides under the `backend` directory. The entry point is `server.py
 * `/api/data-modules` – CRUD operations for S1000D data modules
 * `/api/icns` – manage illustrations with captioning and hotspot data
 * `/api/publication-modules` – create and publish compiled manuals
+* `/api/data-modules/{dmc}/export` – download a data module as XML
+* `/api/icns/{id}/image` – retrieve the original image file
+* `/api/brex-default` – fetch the built-in BREX rule set
+* `/api/validate/{dmc}` – validate a module against BREX and XSD
+* `/api/test/text` and `/api/test/vision` – test the active providers
 
 Each endpoint is fully asynchronous and returns pydantic models for type safety. Errors are logged and surfaced as standard HTTP exceptions. The document service handles file storage under `/tmp/aquila_uploads` by default, performing SHA256 checks and capturing basic metadata. When processing a file, it extracts text based on the MIME type, splitting PDF pages or scanning PowerPoint slides as needed. The text is then passed through the selected AI provider for classification and extraction. If the provider successfully rewrites the text into STE, the service creates both a verbatim data module and an STE variant. Images, whether uploaded directly or extracted from PDFs, are processed through the vision provider for captions, objects, and hotspot suggestions. The results are stored in the ICN collection.
 
