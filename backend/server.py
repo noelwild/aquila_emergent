@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import os
 import logging
@@ -14,6 +14,8 @@ import json
 import base64
 import io
 from datetime import datetime
+import re
+import yaml
 
 # Import models
 from .models.base import SettingsModel, ProviderEnum, ValidationStatus
@@ -61,8 +63,73 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global settings
-system_settings = SettingsModel()
+# Load default BREX rules
+DEFAULT_BREX_RULES_PATH = ROOT_DIR / "default_brex_rules.yaml"
+if DEFAULT_BREX_RULES_PATH.exists():
+    with open(DEFAULT_BREX_RULES_PATH, "r") as f:
+        DEFAULT_BREX_RULES: Dict[str, Any] = yaml.safe_load(f) or {}
+else:
+    DEFAULT_BREX_RULES = {}
+
+# Global settings with defaults
+system_settings = SettingsModel(brex_rules=DEFAULT_BREX_RULES)
+
+
+def validate_module_dict(module: Dict[str, Any], rules: Dict[str, Any]) -> Tuple[ValidationStatus, List[str]]:
+    """Validate a data module dictionary against BREX rules."""
+    errors: List[str] = []
+    status = ValidationStatus.GREEN
+
+    title_rules = rules.get("title", {})
+    title = module.get("title", "")
+    if title_rules.get("required") and not title:
+        errors.append("Title is required")
+        status = ValidationStatus.RED
+    if title and title_rules.get("maxLength") and len(title) > int(title_rules["maxLength"]):
+        errors.append("Title exceeds maximum length")
+        status = ValidationStatus.RED
+    pattern = title_rules.get("pattern")
+    if title and pattern and not re.match(pattern, title):
+        errors.append("Title does not match pattern")
+        status = ValidationStatus.RED
+
+    dmc_rules = rules.get("dmc", {})
+    dmc = module.get("dmc", "")
+    if dmc_rules.get("required") and not dmc:
+        errors.append("DMC is required")
+        status = ValidationStatus.RED
+    dmc_pattern = dmc_rules.get("pattern")
+    if dmc and dmc_pattern and not re.match(dmc_pattern, dmc):
+        errors.append("DMC does not match pattern")
+        status = ValidationStatus.RED
+
+    content_rules = rules.get("content", {})
+    content = module.get("content", "")
+    if content_rules.get("required") and not content:
+        errors.append("Content is required")
+        status = ValidationStatus.RED
+    if content and content_rules.get("minLength") and len(content) < int(content_rules["minLength"]):
+        errors.append("Content below minimum length")
+        status = ValidationStatus.RED
+    if content and content_rules.get("maxLength") and len(content) > int(content_rules["maxLength"]):
+        errors.append("Content exceeds maximum length")
+        status = ValidationStatus.RED
+
+    ste_rules = rules.get("ste", {})
+    ste_score = float(module.get("ste_score", 0))
+    if ste_score < float(ste_rules.get("minScore", 0)):
+        status = ValidationStatus.RED
+    elif ste_score < float(ste_rules.get("warnBelowScore", 0)) and status == ValidationStatus.GREEN:
+        status = ValidationStatus.AMBER
+
+    security_rules = rules.get("security", {})
+    sec_level = module.get("security_level")
+    allowed = security_rules.get("allowedClassifications")
+    if allowed and sec_level and sec_level not in allowed:
+        errors.append("Security classification not allowed")
+        status = ValidationStatus.RED
+
+    return status, errors
 
 # API Endpoints
 
@@ -87,20 +154,30 @@ async def get_settings():
     """Get current system settings."""
     return system_settings.dict()
 
+@api_router.get("/brex-default")
+async def get_default_brex_rules():
+    """Return the built-in default BREX rules."""
+    return DEFAULT_BREX_RULES
+
 @api_router.post("/settings")
-async def update_settings(settings: SettingsModel):
-    """Update system settings."""
+async def update_settings(settings: Dict[str, Any]):
+    """Partially update system settings."""
     global system_settings
-    system_settings = settings
-    
-    # Update environment variables
-    os.environ["TEXT_PROVIDER"] = settings.text_provider.value
-    os.environ["VISION_PROVIDER"] = settings.vision_provider.value
-    if settings.text_model:
-        os.environ["TEXT_MODEL"] = settings.text_model
-    if settings.vision_model:
-        os.environ["VISION_MODEL"] = settings.vision_model
-    
+
+    current = system_settings.dict()
+    current.update(settings)
+    system_settings = SettingsModel(**current)
+
+    # Update environment variables if provider values changed
+    if "text_provider" in settings:
+        os.environ["TEXT_PROVIDER"] = system_settings.text_provider.value
+    if "vision_provider" in settings:
+        os.environ["VISION_PROVIDER"] = system_settings.vision_provider.value
+    if "text_model" in settings:
+        os.environ["TEXT_MODEL"] = system_settings.text_model
+    if "vision_model" in settings:
+        os.environ["VISION_MODEL"] = system_settings.vision_model
+
     return {"message": "Settings updated successfully", "settings": system_settings.dict()}
 
 # AI Provider endpoints
@@ -368,27 +445,15 @@ async def update_icn(icn_id: str, icn_data: Dict[str, Any]):
 # Validation endpoints
 @api_router.post("/validate/{dmc}")
 async def validate_data_module(dmc: str):
-    """Validate a data module."""
+    """Validate a data module using BREX rules."""
     try:
         module = await db.data_modules.find_one({"dmc": dmc})
         if not module:
             raise HTTPException(404, "Data module not found")
-        
-        # Basic validation (would implement full XSD/BREX validation)
-        validation_errors = []
-        validation_status = ValidationStatus.GREEN
-        
-        if not module.get("title"):
-            validation_errors.append("Title is required")
-            validation_status = ValidationStatus.RED
-        
-        if not module.get("content"):
-            validation_errors.append("Content is required")
-            validation_status = ValidationStatus.RED
-        
-        if module.get("ste_score", 0) < 0.85:
-            validation_status = ValidationStatus.AMBER
-        
+
+        rules = system_settings.brex_rules or DEFAULT_BREX_RULES
+        validation_status, validation_errors = validate_module_dict(module, rules)
+
         # Update module validation status
         await db.data_modules.update_one(
             {"dmc": dmc},
