@@ -546,13 +546,18 @@ async def publish_publication_module(pm_code: str, publish_options: Dict[str, An
         if not pm:
             raise HTTPException(404, "Publication module not found")
         
-        # This would implement the full publication process
-        # For now, return success
+        pm_obj = PublicationModule(**pm)
+        formats = publish_options.get("formats", ["xml"])
+        variants = publish_options.get("variants", ["verbatim"])
+        package_path = await document_service.publish_publication_module(
+            pm_obj, db, formats=formats, variants=variants
+        )
         return {
             "message": "Publication module published successfully",
             "pm_code": pm_code,
-            "formats": publish_options.get("formats", ["xml"]),
-            "variants": publish_options.get("variants", ["verbatim"])
+            "package": str(package_path),
+            "formats": formats,
+            "variants": variants,
         }
     except Exception as e:
         logger.error(f"Error publishing publication module: {str(e)}")

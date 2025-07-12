@@ -5,6 +5,7 @@ import base64
 import aiofiles
 from typing import List, Dict, Any
 from pathlib import Path
+import shutil
 from PyPDF2 import PdfReader
 from pptx import Presentation
 from openpyxl import load_workbook
@@ -13,12 +14,13 @@ from docx import Document
 from pdf2image import convert_from_path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 import xmlschema
+from reportlab.platypus import SimpleDocTemplate, Paragraph
 import io
 import asyncio
 import uuid
 import re
 
-from ..models.document import UploadedDocument, ICN, DataModule, ProcessingTask
+from ..models.document import UploadedDocument, ICN, DataModule, ProcessingTask, PublicationModule
 from ..models.base import DMTypeEnum
 from ..ai_providers.provider_factory import ProviderFactory
 from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
@@ -32,6 +34,8 @@ class DocumentService:
         self.upload_path.mkdir(parents=True, exist_ok=True)
         self.icn_path = self.upload_path / "icns"
         self.icn_path.mkdir(parents=True, exist_ok=True)
+        self.export_path = self.upload_path / "exports"
+        self.export_path.mkdir(parents=True, exist_ok=True)
         self.settings = settings
         backend_root = Path(__file__).resolve().parent.parent
         self.templates_path = backend_root / "templates"
@@ -332,4 +336,49 @@ class DocumentService:
             return schema.is_valid(xml_str)
         except Exception:
             return False
+
+    async def publish_publication_module(
+        self,
+        pm: PublicationModule,
+        db,
+        formats: List[str],
+        variants: List[str],
+    ) -> Path:
+        """Compile a publication module into an export package."""
+        modules = await db.data_modules.find({"dmc": {"$in": pm.dm_list}}).to_list(len(pm.dm_list))
+        if not modules:
+            raise ValueError("No data modules found for publication")
+
+        pm_dir = self.export_path / pm.pm_code
+        pm_dir.mkdir(parents=True, exist_ok=True)
+
+        package_files: List[Path] = []
+        for mod_data in modules:
+            dm = DataModule(**mod_data)
+            if dm.info_variant not in variants:
+                continue
+
+            xml_str = self.render_data_module_xml(dm)
+            xml_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.xml"
+            async with aiofiles.open(xml_path, "w") as f:
+                await f.write(xml_str)
+            package_files.append(xml_path)
+
+            if "html" in formats:
+                html_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.html"
+                env = Environment(loader=FileSystemLoader(str(self.templates_path)))
+                html_template = env.get_template("data_module.html.j2")
+                html_content = html_template.render(module=dm)
+                async with aiofiles.open(html_path, "w") as f:
+                    await f.write(html_content)
+                package_files.append(html_path)
+
+            if "pdf" in formats:
+                pdf_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.pdf"
+                doc = SimpleDocTemplate(str(pdf_path))
+                doc.build([Paragraph(dm.content)])
+                package_files.append(pdf_path)
+
+        zip_path = shutil.make_archive(str(pm_dir), "zip", pm_dir)
+        return Path(zip_path)
 
