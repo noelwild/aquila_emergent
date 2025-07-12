@@ -1,10 +1,19 @@
 # Aquila S1000D-AI
 
-<<<<<< 7kcoz8-codex/remove-duplicate-react-hotkeys-hook-dependency
 ## Introduction
 Aquila S1000D-AI is an experimental platform that demonstrates how artificial intelligence can streamline the production of technical manuals in S1000D format. The project originated as a proof of concept for processing legacy maintenance documents by combining computer vision, natural language processing, and an interactive authoring interface. Today it has grown into a full stack prototype covering document ingestion, analysis, editing, and publishing. By integrating AI services from OpenAI and Anthropic alongside local models, the system showcases how modern language and vision models can assist with complex aerospace documentation tasks. While many features remain in an early research stage, the repository now contains a fully runnable backend API and a front-end web interface that together offer a glimpse into the future of automated technical writing.
 
 Aquila follows the S1000D specification for data and publication modules, enabling interoperability with existing S1000D toolchains. A series of Python data models mirrors the major components of the standard, from data modules and publication modules to illustration control numbers (ICNs). These models track processing status, validation results, and security markings so that authors can monitor progress as content moves through the workflow. On the front-end side a dark themed React application built with Tailwind CSS renders uploaded documents and generated modules, providing in-browser editors and rich visualizations. LED style indicators signal validation results, while keyboard shortcuts allow power users to quickly navigate large projects. Although this is not a production ready system, it demonstrates how developers might combine AI services with open source frameworks to modernize S1000D production.
+
+
+## Features
+
+- **Document Management** – upload PDFs or images and extract text and illustrations
+- **AI Processing** – classify documents, extract structured data, rewrite content to Simplified Technical English and generate captions/objects from images
+- **Data Modules** – create, edit and validate S1000D data modules with STE scoring
+- **Illustrations** – manage ICNs with captioning, object detection and hotspot suggestions
+- **Publication Modules** – drag-and-drop builder with export options (XML, HTML, PDF)
+- **Provider Switching** – dynamically select OpenAI, Anthropic or local models for text and vision tasks
 
 ## Project Scope
 The goal of Aquila S1000D-AI is to provide a comprehensive reference implementation for an AI-assisted document processing pipeline. The system aims to ingest a variety of legacy formats – such as PDF, Microsoft Office files, and plain text – and transform them into structured S1000D data modules. Computer vision is used to identify and caption images, while natural language models classify document sections and rewrite text into Simplified Technical English (STE). Editors built into the web interface allow authors to review and adjust the AI output. Publication modules organize data modules into a hierarchical tree, after which the entire project can be exported as XML, HTML, or PDF packages. A key architectural feature is the AI provider factory that supports multiple vendor back ends. The current implementation can use OpenAI or Anthropic models with API keys supplied via environment variables, and there is also a placeholder for local model integration. This design ensures that organizations can adapt the system to whichever AI providers best meet their needs without altering the rest of the codebase.
@@ -89,6 +98,7 @@ cp backend/.env.example backend/.env
 # `ANTHROPIC_API_KEY`, `STRIPE_API_KEY` (optional) and any database
 # settings like `MONGO_URL`.
 ```
+The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the default models.
 
 Finally, start the backend and frontend servers in separate terminals:
 
@@ -137,43 +147,6 @@ If you wish to contribute to this project, please fork the repository and open a
 
 ## Contact and Acknowledgments
 Aquila S1000D-AI was created as a research initiative to explore AI-assisted technical publishing. We thank the open-source community for the libraries that made this prototype possible, including FastAPI, Pydantic, React, Tailwind CSS, PDF.js, and the numerous test frameworks. If you have questions about the project or wish to collaborate, please open an issue on the GitHub repository. We welcome feedback from technical writers, software developers, and AI researchers alike. Together we can push the boundaries of what’s possible in the world of automated documentation.
-======
-Aquila S1000D-AI is a proof-of-concept platform for processing technical documentation using AI text and vision models. The backend exposes a FastAPI service while the frontend is a React application built with Tailwind CSS.
-
-## Features
-
-- **Document Management** – upload PDFs or images and extract text and illustrations
-- **AI Processing** – classify documents, extract structured data, rewrite content to Simplified Technical English and generate captions/objects from images
-- **Data Modules** – create, edit and validate S1000D data modules with STE scoring
-- **Illustrations** – manage ICNs with captioning, object detection and hotspot suggestions
-- **Publication Modules** – drag-and-drop builder with export options (XML, HTML, PDF)
-- **Provider Switching** – dynamically select OpenAI, Anthropic or local models for text and vision tasks
-
-## Getting Started
-
-### Backend
-1. Install dependencies:
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
-2. Copy `backend/.env.example` to `backend/.env` and fill in values for your environment (MongoDB URL, API keys, provider settings).
-   The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the default models.
-3. Run the API server:
-   ```bash
-   uvicorn backend.server:app --reload
-   ```
-
-### Frontend
-1. Install dependencies:
-   ```bash
-   cd frontend && yarn install
-   ```
-2. Start the development server:
-   ```bash
-   yarn start
-   ```
-
-The React app will open at `http://localhost:3000` and communicates with the FastAPI backend on port `8001` by default.
 
 ## Repository Layout
 
@@ -186,4 +159,3 @@ The React app will open at `http://localhost:3000` and communicates with the Fas
 
 This repository represents a working prototype with most functionality implemented. See `test_result.md` for detailed testing notes and current status.
 
->>>>>> main
