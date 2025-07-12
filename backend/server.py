@@ -34,8 +34,6 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Initialize document service
-document_service = DocumentService()
 
 # Create FastAPI app
 app = FastAPI(
@@ -73,6 +71,9 @@ else:
 
 # Global settings with defaults
 system_settings = SettingsModel(brex_rules=DEFAULT_BREX_RULES)
+
+# Initialize document service
+document_service = DocumentService(settings=system_settings)
 
 
 def validate_module_dict(module: Dict[str, Any], rules: Dict[str, Any]) -> Tuple[ValidationStatus, List[str]]:
@@ -177,6 +178,9 @@ async def update_settings(settings: Dict[str, Any]):
         os.environ["TEXT_MODEL"] = system_settings.text_model
     if "vision_model" in settings:
         os.environ["VISION_MODEL"] = system_settings.vision_model
+
+    # Update document service settings
+    document_service.settings = system_settings
 
     return {"message": "Settings updated successfully", "settings": system_settings.dict()}
 
@@ -354,6 +358,23 @@ async def get_data_module(dmc: str):
         logger.error(f"Error fetching data module: {str(e)}")
         raise HTTPException(500, f"Error fetching data module: {str(e)}")
 
+@api_router.get("/data-modules/{dmc}/export")
+async def export_data_module(dmc: str, format: str = "xml"):
+    """Export a data module."""
+    try:
+        module_data = await db.data_modules.find_one({"dmc": dmc})
+        if not module_data:
+            raise HTTPException(404, "Data module not found")
+        module = DataModule(**module_data)
+        if format == "xml":
+            xml_str = document_service.render_data_module_xml(module)
+            return StreamingResponse(io.BytesIO(xml_str.encode("utf-8")), media_type="application/xml")
+        else:
+            raise HTTPException(400, "Unsupported format")
+    except Exception as e:
+        logger.error(f"Error exporting data module: {str(e)}")
+        raise HTTPException(500, f"Error exporting data module: {str(e)}")
+
 @api_router.put("/data-modules/{dmc}")
 async def update_data_module(dmc: str, module_data: Dict[str, Any]):
     """Update a data module."""
@@ -454,12 +475,21 @@ async def validate_data_module(dmc: str):
         rules = system_settings.brex_rules or DEFAULT_BREX_RULES
         validation_status, validation_errors = validate_module_dict(module, rules)
 
+        xml_valid = False
+        try:
+            dm_obj = DataModule(**module)
+            xml_str = document_service.render_data_module_xml(dm_obj)
+            xml_valid = document_service.validate_xml(xml_str)
+        except Exception:
+            xml_valid = False
+
         # Update module validation status
         await db.data_modules.update_one(
             {"dmc": dmc},
             {"$set": {
                 "validation_status": validation_status.value,
                 "validation_errors": validation_errors,
+                "xsd_valid": xml_valid,
                 "updated_at": datetime.utcnow()
             }}
         )
@@ -467,7 +497,8 @@ async def validate_data_module(dmc: str):
         return {
             "dmc": dmc,
             "status": validation_status.value,
-            "errors": validation_errors
+            "errors": validation_errors,
+            "xsd_valid": xml_valid
         }
     except Exception as e:
         logger.error(f"Error validating data module: {str(e)}")
