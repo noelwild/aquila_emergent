@@ -3,6 +3,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Dict, Any, Optional, Tuple
@@ -13,9 +14,19 @@ import uuid
 import json
 import base64
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import yaml
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+from .models.user import User
+from .services.auth import (
+    get_password_hash,
+    verify_password,
+    authenticate_user,
+    create_access_token,
+)
 
 # Import models
 from .models.base import SettingsModel, ProviderEnum, ValidationStatus
@@ -34,6 +45,14 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# Auth configuration
+SECRET_KEY = os.environ.get("SECRET_KEY", "change-me")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+ALGORITHM = "HS256"
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -42,8 +61,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Create API router
-api_router = APIRouter(prefix="/api")
 
 # Configure CORS
 app.add_middleware(
@@ -74,6 +91,65 @@ system_settings = SettingsModel(brex_rules=DEFAULT_BREX_RULES)
 
 # Initialize document service
 document_service = DocumentService(settings=system_settings)
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    """Retrieve the currently authenticated user from the access token."""
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str | None = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user_data = await db.users.find_one({"username": username})
+    if not user_data:
+        raise credentials_exception
+    return User(**user_data)
+
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+
+auth_router = APIRouter(prefix="/auth")
+
+
+@auth_router.post("/register")
+async def register_user(username: str = Form(...), password: str = Form(...)):
+    if await db.users.find_one({"username": username}):
+        raise HTTPException(400, "Username already exists")
+    hashed = get_password_hash(password)
+    user = User(username=username, hashed_password=hashed)
+    await db.users.insert_one(user.dict())
+    return {"message": "User registered"}
+
+
+@auth_router.post("/token")
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+):
+    user = await authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username},
+        secret_key=SECRET_KEY,
+        expires_delta=access_token_expires,
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# Create API router (endpoints require authentication)
+api_router = APIRouter(prefix="/api", dependencies=[Depends(get_current_active_user)])
 
 
 def validate_module_dict(
@@ -151,12 +227,13 @@ def validate_module_dict(
 
 # API Endpoints
 
-@api_router.get("/")
+@app.get("/api/")
 async def root():
     """Root endpoint."""
     return {"message": "Aquila S1000D-AI API", "version": "1.0.0"}
 
-@api_router.get("/health")
+
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
     provider_config = ProviderFactory.validate_provider_config()
@@ -627,6 +704,7 @@ async def test_vision_provider(image_data: str, task_type: str = "caption"):
         raise HTTPException(500, f"Error testing vision provider: {str(e)}")
 
 # Include the router in the main app
+app.include_router(auth_router)
 app.include_router(api_router)
 
 # Shutdown event

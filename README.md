@@ -101,6 +101,8 @@ cp backend/.env.example backend/.env
 # `Goekdeniz-Guelmez/Josiefied-Qwen3-30B-A3B-abliterated-v2` for `TEXT_MODEL`
 # and `Qwen/Qwen-VL-Chat` for `VISION_MODEL`. These models will be downloaded
 # automatically from Hugging Face on first use.
+# Set `SECRET_KEY` to a random string for signing authentication tokens and
+# optionally adjust `ACCESS_TOKEN_EXPIRE_MINUTES`.
 ```
 The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the local model paths.
 
@@ -113,6 +115,20 @@ yarn start
 ```
 
 The React application will open at `http://localhost:3000` and connect to the FastAPI backend on port `8001`. If you do not have AI provider keys you can switch to the “local” provider in the settings modal to test the user interface without real AI calls.
+
+### Authentication
+Most API routes now require a valid access token. Register a user and obtain a token using the authentication endpoints:
+
+```bash
+curl -X POST -F "username=test" -F "password=secret" http://localhost:8001/auth/register
+curl -X POST -F "username=test" -F "password=secret" http://localhost:8001/auth/token
+```
+
+Include the returned token in the `Authorization` header when calling `/api` routes:
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:8001/api/settings
+```
 
 ## Usage Overview
 Once the servers are running you can upload a document through the toolbar. The sidebar will list the uploaded file, at which point you can select it and click “Process.” The backend will extract text, analyze it with the configured provider, and generate new data modules. These modules show up in the sidebar and can be opened in the workspace. Use the data module viewer to inspect the generated content and run validation. The XML editor provides full markup access if you need to fix tags or add attributes. When you have multiple modules prepared, create a publication module from the sidebar and arrange the modules in a hierarchy. Clicking the publish button allows you to choose variants and output formats, after which a package is generated. Because this is a prototype the publishing action simply returns a success message, but the scaffolding is in place for connecting a more sophisticated export tool.
@@ -141,7 +157,7 @@ yarn test
 A log of past test results is stored in `test_result.md`, which tracks working status for each major component.
 
 ## Security Considerations
-Aquila is designed for research and does not implement authentication or authorization out of the box. If you plan to run it in a production environment you should integrate user accounts and access controls. The data models include fields for security classification levels, and the interface exposes options for watermarking images, but these mechanisms rely on external policies for enforcement. Because the system interacts with external AI providers you should also be mindful of data privacy and API usage limits. Ensure that no sensitive data is sent to third-party services without proper consent. The local provider option exists specifically for environments where uploading data to the cloud is not permitted and now leverages Hugging Face models that run entirely on your own hardware.
+Aquila now includes a basic token-based authentication layer but it should not be considered production ready. User accounts are stored in MongoDB and access tokens are signed with the `SECRET_KEY` from `.env`. Most endpoints under `/api` require a valid token. For hardened deployments you should implement additional access controls and auditing. Because the system interacts with external AI providers you should also be mindful of data privacy and API usage limits. Ensure that no sensitive data is sent to third-party services without proper consent. The local provider option exists specifically for environments where uploading data to the cloud is not permitted and now leverages Hugging Face models that run entirely on your own hardware.
 
 ## Future Plans
 While Aquila demonstrates a full S1000D pipeline at a conceptual level, many features could be expanded. Improved text extraction using OCR would allow processing of scanned PDFs. Integration with a real STE checker would make the rewriting feature more reliable. The publication pipeline could connect to a layout engine to produce print-ready PDF manuals. Additionally, better user management, role-based access control, and audit logging would be required for enterprise adoption. The modular design of the provider system means other AI vendors could be added with relative ease, and there is room to integrate domain-specific models for tasks like fault isolation or predictive maintenance. Contributions and suggestions are welcome, and the repository intends to serve as a living reference for researchers exploring AI-assisted documentation.
