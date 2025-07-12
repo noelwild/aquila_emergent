@@ -41,6 +41,14 @@ class SecurityLevel(str, Enum):
     TOP_SECRET = "TOP_SECRET"
 
 
+class StructureType(str, Enum):
+    """Operational environment types for default DMC structure."""
+    WATER = "water"
+    AIR = "air"
+    LAND = "land"
+    OTHER = "other"
+
+
 class BaseDocument(BaseModel):
     """Base document model."""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -61,6 +69,7 @@ class SettingsModel(BaseDocument):
     vision_model: str = "gpt-4o-mini"
     security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
     default_language: str = "en-US"
+    structure_type: StructureType = StructureType.AIR
     dmc_policy: str = "default"
     dmc_defaults: Dict[str, Any] = {
         "model_ident": "AQUILA",
