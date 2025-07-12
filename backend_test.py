@@ -12,11 +12,14 @@ from PIL import Image
 import io
 import sys
 from pprint import pprint
+import logging
 
 import pytest
 
 if not os.getenv("AQUILA_INTEGRATION_TESTS"):
     pytest.skip("Skipping backend integration tests", allow_module_level=True)
+
+logger = logging.getLogger(__name__)
 
 # API Base URL
 API_BASE_URL = "https://e79d7fba-faa5-470f-8a4a-3841cc19f48a.preview.emergentagent.com/api"
@@ -51,20 +54,20 @@ def image_to_base64(image_data):
 # Helper function to print test results
 def print_test_result(test_name, success, response=None, error=None):
     if success:
-        print(f"✅ {test_name}: PASSED")
+        logger.warning(f"✅ {test_name}: PASSED")
         if response:
-            print(f"   Response: {response}")
+            logger.warning(f"   Response: {response}")
     else:
-        print(f"❌ {test_name}: FAILED")
+        logger.error(f"❌ {test_name}: FAILED")
         if error:
-            print(f"   Error: {error}")
+            logger.error(f"   Error: {error}")
         if response:
-            print(f"   Response: {response}")
-    print("-" * 80)
+            logger.error(f"   Response: {response}")
+    logger.warning("-" * 80)
 
 # 1. Health Check & Basic APIs
 def test_health_check():
-    print("\n=== Testing Health Check & Basic APIs ===\n")
+    logger.warning("\n=== Testing Health Check & Basic APIs ===\n")
     
     # Test root endpoint
     try:
@@ -82,7 +85,7 @@ def test_health_check():
 
 # 2. AI Provider Configuration
 def test_provider_configuration():
-    print("\n=== Testing AI Provider Configuration ===\n")
+    logger.warning("\n=== Testing AI Provider Configuration ===\n")
     
     # Get available providers
     try:
@@ -123,7 +126,7 @@ def test_provider_configuration():
 
 # 3. AI Provider Testing
 def test_ai_providers():
-    print("\n=== Testing AI Provider Capabilities ===\n")
+    logger.warning("\n=== Testing AI Provider Capabilities ===\n")
     
     # Test text processing with OpenAI
     try:
@@ -220,7 +223,7 @@ def test_ai_providers():
 
 # 4. Document Management
 def test_document_management():
-    print("\n=== Testing Document Management ===\n")
+    logger.warning("\n=== Testing Document Management ===\n")
     
     # Test document upload
     test_image = create_test_image()
@@ -238,7 +241,7 @@ def test_document_management():
         document_id = None
     
     if not document_id:
-        print("Cannot continue document tests without a valid document ID")
+        logger.warning("Cannot continue document tests without a valid document ID")
         return None
     
     # Test get documents
@@ -271,10 +274,10 @@ def test_document_management():
 
 # 5. Data Module Management
 def test_data_module_management(dmc_list):
-    print("\n=== Testing Data Module Management ===\n")
+    logger.warning("\n=== Testing Data Module Management ===\n")
     
     if not dmc_list:
-        print("Cannot test data modules without valid DMC list")
+        logger.warning("Cannot test data modules without valid DMC list")
         return
     
     # Test get all data modules
@@ -316,7 +319,7 @@ def test_data_module_management(dmc_list):
 
 # 6. ICN Management
 def test_icn_management():
-    print("\n=== Testing ICN Management ===\n")
+    logger.warning("\n=== Testing ICN Management ===\n")
     
     # Test get all ICNs
     try:
@@ -333,7 +336,7 @@ def test_icn_management():
         icn_id = None
     
     if not icn_id:
-        print("Cannot continue ICN tests without a valid ICN ID")
+        logger.warning("Cannot continue ICN tests without a valid ICN ID")
         return
     
     # Test get specific ICN
@@ -367,10 +370,10 @@ def test_icn_management():
 
 # 7. Publication Module Management
 def test_publication_module_management(dmc_list):
-    print("\n=== Testing Publication Module Management ===\n")
+    logger.warning("\n=== Testing Publication Module Management ===\n")
     
     if not dmc_list:
-        print("Cannot test publication modules without valid DMC list")
+        logger.warning("Cannot test publication modules without valid DMC list")
         return
     
     # Test create publication module
@@ -433,9 +436,9 @@ def test_publication_module_management(dmc_list):
         print_test_result(f"Publish Publication Module {pm_code}", False, error=str(e))
 
 def main():
-    print("\n" + "=" * 80)
-    print("AQUILA S1000D-AI BACKEND TEST SUITE")
-    print("=" * 80 + "\n")
+    logger.warning("\n" + "=" * 80)
+    logger.warning("AQUILA S1000D-AI BACKEND TEST SUITE")
+    logger.warning("=" * 80 + "\n")
     
     # Run all tests
     test_health_check()
@@ -447,9 +450,9 @@ def main():
         test_publication_module_management(dmc_list)
     test_icn_management()
     
-    print("\n" + "=" * 80)
-    print("TEST SUITE COMPLETED")
-    print("=" * 80 + "\n")
+    logger.warning("\n" + "=" * 80)
+    logger.warning("TEST SUITE COMPLETED")
+    logger.warning("=" * 80 + "\n")
 
 if __name__ == "__main__":
     main()

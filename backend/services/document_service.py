@@ -20,6 +20,7 @@ import io
 import asyncio
 import uuid
 import re
+import logging
 
 from ..models.document import (
     UploadedDocument,
@@ -32,6 +33,7 @@ from ..models.base import DMTypeEnum
 from ..ai_providers.provider_factory import ProviderFactory
 from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
 
+logger = logging.getLogger(__name__)
 
 class DocumentService:
     """Service for document processing and management."""
@@ -99,7 +101,7 @@ class DocumentService:
                 return await self._extract_plain_text(fp)
             return ""
         except Exception as e:
-            print(f"Error extracting text from {document.filename}: {e}")
+            logger.error(f"Error extracting text from {document.filename}: {e}")
             return ""
 
     async def _extract_pdf_text(self, file_path: Path) -> str:
@@ -107,7 +109,7 @@ class DocumentService:
             reader = PdfReader(str(file_path))
             return "".join(page.extract_text() + "\n" for page in reader.pages)
         except Exception as e:
-            print(f"Error extracting PDF text: {e}")
+            logger.error(f"Error extracting PDF text: {e}")
             return ""
 
     async def _extract_docx_text(self, file_path: Path) -> str:
@@ -116,7 +118,7 @@ class DocumentService:
             paragraphs = [p.text for p in doc.paragraphs if p.text]
             return "\n".join(paragraphs)
         except Exception as e:
-            print(f"Error extracting DOCX text: {e}")
+            logger.error(f"Error extracting DOCX text: {e}")
             return ""
 
     async def _extract_pptx_text(self, file_path: Path) -> str:
@@ -129,7 +131,7 @@ class DocumentService:
                         text += shape.text + "\n"
             return text
         except Exception as e:
-            print(f"Error extracting PPTX text: {e}")
+            logger.error(f"Error extracting PPTX text: {e}")
             return ""
 
     async def _extract_xlsx_text(self, file_path: Path) -> str:
@@ -144,7 +146,7 @@ class DocumentService:
                     text += "\n"
             return text
         except Exception as e:
-            print(f"Error extracting XLSX text: {e}")
+            logger.error(f"Error extracting XLSX text: {e}")
             return ""
 
     async def _extract_plain_text(self, file_path: Path) -> str:
@@ -152,7 +154,7 @@ class DocumentService:
             async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
                 return await f.read()
         except Exception as e:
-            print(f"Error extracting plain text: {e}")
+            logger.error(f"Error extracting plain text: {e}")
             return ""
 
     def _derive_lcn(self, name: str) -> str:
@@ -176,7 +178,7 @@ class DocumentService:
         try:
             pages = await asyncio.to_thread(convert_from_path, str(file_path))
         except Exception as e:
-            print(f"Error extracting PDF images: {e}")
+            logger.error(f"Error extracting PDF images: {e}")
             if self.notifier:
                 try:
                     self.notifier(
@@ -227,7 +229,7 @@ class DocumentService:
                 )
             ]
         except Exception as e:
-            print(f"Error processing image: {e}")
+            logger.error(f"Error processing image: {e}")
             return []
 
     async def process_document_with_ai(
@@ -287,7 +289,7 @@ class DocumentService:
                 modules.append(ste_dm)
             return modules
         except Exception as e:
-            print(f"Error processing document with AI: {e}")
+            logger.error(f"Error processing document with AI: {e}")
             basic = DataModule(
                 dmc=self._generate_dmc({"dm_type": "GEN", "title": document.filename}),
                 title=document.filename,
@@ -346,7 +348,7 @@ class DocumentService:
             icn.hotspots = hotspots_res.hotspots
             return icn
         except Exception as e:
-            print(f"Error processing image with AI: {e}")
+            logger.error(f"Error processing image with AI: {e}")
             icn.caption = f"Error processing image: {e}"
             return icn
 
@@ -413,7 +415,7 @@ class DocumentService:
                     doc.build([Paragraph(dm.content)])
                     package_files.append(pdf_path)
             except Exception as e:  # pragma: no cover - best effort logging
-                print(f"Failed to export {dm.dmc}: {e}")
+                logger.warning(f"Failed to export {dm.dmc}: {e}")
 
         if not package_files:
             raise ValueError("No files generated for publication module")
