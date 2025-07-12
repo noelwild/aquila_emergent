@@ -110,12 +110,14 @@ def test_publish_publication_module(tmp_path):
     service = DocumentService(upload_path=tmp_path)
     db = FakeDB([dm1, dm2])
 
-    package = asyncio.run(
+    result = asyncio.run(
         service.publish_publication_module(
             pm, db, formats=["xml", "html", "pdf"], variants=["00", "01"]
         )
     )
 
+    package = result["package"]
+    assert result["errors"] == []
     assert package.exists()
     with zipfile.ZipFile(package) as z:
         names = z.namelist()

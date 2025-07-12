@@ -15,7 +15,8 @@ from docx import Document
 from pdf2image import convert_from_path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 import xmlschema
-from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Image, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 import asyncio
 import uuid
@@ -363,6 +364,38 @@ class DocumentService:
             icn.caption = f"Error processing image: {e}"
             return icn
 
+    def _render_pdf(self, module: DataModule, icns: List[ICN], pdf_path: Path) -> None:
+        """Render a PDF file for the given data module."""
+        styles = getSampleStyleSheet()
+        styles.add(
+            ParagraphStyle(
+                name="Caption",
+                parent=styles["Normal"],
+                fontSize=10,
+                italic=True,
+            )
+        )
+
+        flow: List[Any] = [Paragraph(module.title, styles["Title"]), Spacer(1, 12)]
+
+        for para in module.content.split("\n\n"):
+            txt = para.strip()
+            if txt:
+                flow.append(Paragraph(txt, styles["BodyText"]))
+                flow.append(Spacer(1, 12))
+
+        for icn in icns:
+            try:
+                flow.append(Image(icn.file_path, width=400, preserveAspectRatio=True))
+                if icn.caption:
+                    flow.append(Paragraph(icn.caption, styles["Caption"]))
+                flow.append(Spacer(1, 12))
+            except Exception as e:  # pragma: no cover - best effort logging
+                logger.warning(f"Could not add image {icn.file_path}: {e}")
+
+        doc = SimpleDocTemplate(str(pdf_path))
+        doc.build(flow)
+
     def render_data_module_xml(self, module: DataModule) -> str:
         """Render a DataModule to XML using Jinja2 template."""
         env = Environment(
@@ -386,7 +419,7 @@ class DocumentService:
         db,
         formats: List[str],
         variants: List[str],
-    ) -> Path:
+    ) -> Dict[str, Any]:
         """Compile a publication module into an export package."""
         modules = await db.data_modules.find({"dmc": {"$in": pm.dm_list}}).to_list(
             len(pm.dm_list)
@@ -398,6 +431,7 @@ class DocumentService:
         pm_dir.mkdir(parents=True, exist_ok=True)
 
         package_files: List[Path] = []
+        errors: List[str] = []
         env = Environment(loader=FileSystemLoader(str(self.templates_path)))
         html_template = env.get_template("data_module.html.j2")
 
@@ -422,14 +456,22 @@ class DocumentService:
 
                 if "pdf" in formats:
                     pdf_path = pm_dir / f"{dm.dmc}_{dm.info_variant}.pdf"
-                    doc = SimpleDocTemplate(str(pdf_path))
-                    doc.build([Paragraph(dm.content)])
+                    icn_objs: List[ICN] = []
+                    if dm.icn_refs:
+                        try:
+                            icn_data = await db.icns.find({"lcn": {"$in": dm.icn_refs}}).to_list(len(dm.icn_refs))
+                            icn_objs = [ICN(**i) for i in icn_data]
+                        except Exception as e:  # pragma: no cover - best effort logging
+                            logger.warning(f"Failed to load ICNs for {dm.dmc}: {e}")
+                    await asyncio.to_thread(self._render_pdf, dm, icn_objs, pdf_path)
                     package_files.append(pdf_path)
             except Exception as e:  # pragma: no cover - best effort logging
-                logger.warning(f"Failed to export {dm.dmc}: {e}")
+                error_msg = f"Failed to export {dm.dmc}: {e}"
+                logger.warning(error_msg)
+                errors.append(error_msg)
 
         if not package_files:
             raise ValueError("No files generated for publication module")
 
         zip_path = shutil.make_archive(str(pm_dir), "zip", pm_dir)
-        return Path(zip_path)
+        return {"package": Path(zip_path), "errors": errors}

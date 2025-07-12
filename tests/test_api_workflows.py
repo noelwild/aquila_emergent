@@ -125,4 +125,6 @@ def test_validation_and_publish(tmp_path):
         headers=headers,
     )
     assert r.status_code == 200
-    assert os.path.exists(r.json()["package"])
+    resp = r.json()
+    assert os.path.exists(resp["package"])
+    assert resp.get("errors") == []
