@@ -129,7 +129,21 @@ const DataModuleViewer = ({ dataModule, variant }) => {
                 <h4 className="text-sm font-medium text-red-400 mb-2">Validation Errors:</h4>
                 <ul className="text-sm text-red-300 space-y-1">
                   {dataModule.validation_errors.map((error, index) => (
-                    <li key={index}>• {error}</li>
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="grow">• {error}</span>
+                      <div className="flex gap-2">
+                        <label className="flex items-center gap-1 text-xs">
+                          <input type="checkbox" name={`fix-${index}`} />
+                          <span>Fix</span>
+                        </label>
+                        {error.toLowerCase().includes('content') && (
+                          <label className="flex items-center gap-1 text-xs">
+                            <input type="checkbox" name={`ai-${index}`} />
+                            <span>AI</span>
+                          </label>
+                        )}
+                      </div>
+                    </li>
                   ))}
                 </ul>
               </div>
