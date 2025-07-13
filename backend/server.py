@@ -251,6 +251,37 @@ def validate_module_dict(
 
     return status, errors, brex_valid, xsd_valid
 
+
+async def async_validate_module_dict(
+    module: Dict[str, Any], rules: Dict[str, Any]
+) -> Tuple[ValidationStatus, List[str], bool, bool]:
+    """Async wrapper that also checks references and performs AI review."""
+    status, errors, brex_valid, xsd_valid = validate_module_dict(module, rules)
+
+    if document_service.db is not None and rules.get("references", {}).get("validateDMRefs"):
+        for ref in module.get("dm_refs", []):
+            exists = await document_service.db.data_modules.find_one({"dmc": ref})
+            if not exists and not rules["references"].get("allowBrokenRefs", False):
+                errors.append(f"Broken data module reference: {ref}")
+                status = ValidationStatus.RED
+
+    if document_service.db is not None and rules.get("references", {}).get("validateICNRefs"):
+        for ref in module.get("icn_refs", []):
+            exists = await document_service.db.icns.find_one({"lcn": ref})
+            if not exists and not rules["references"].get("allowBrokenRefs", False):
+                errors.append(f"Broken ICN reference: {ref}")
+                status = ValidationStatus.RED
+
+    review = await document_service.review_module_ai(module.get("content", ""))
+    issues = review.get("issues", [])
+    if issues:
+        errors.extend([f"AI: {i}" for i in issues])
+        if status == ValidationStatus.GREEN:
+            status = ValidationStatus.AMBER
+
+    brex_valid = status != ValidationStatus.RED and brex_valid
+    return status, errors, brex_valid, xsd_valid
+
 # API Endpoints
 
 @app.get("/api/")
@@ -459,6 +490,8 @@ async def process_document(document_id: str):
         for dm in data_modules:
             await db.data_modules.insert_one(dm.dict())
             stored_modules.append(dm)
+
+        await document_service.refresh_cross_references()
         
         # Update document status
         await db.documents.update_one(
@@ -612,6 +645,8 @@ async def update_icn(icn_id: str, icn_data: Dict[str, Any]):
                 {"$set": {"updated_at": datetime.utcnow()}}
             )
 
+        await document_service.refresh_cross_references()
+
         return {"message": "ICN updated successfully"}
     except Exception as e:
         logger.error(f"Error updating ICN: {str(e)}")
@@ -627,8 +662,8 @@ async def validate_data_module(dmc: str):
             raise HTTPException(404, "Data module not found")
 
         settings_doc = await db.settings.find_one({})
-        if settings_doc:
-            rules = SettingsModel(**settings_doc).brex_rules or DEFAULT_BREX_RULES
+        if settings_doc and "brex_rules" in settings_doc:
+            rules = SettingsModel(**settings_doc).brex_rules
         else:
             rules = DEFAULT_BREX_RULES
         (
@@ -636,7 +671,7 @@ async def validate_data_module(dmc: str):
             validation_errors,
             brex_valid,
             xml_valid,
-        ) = validate_module_dict(module, rules)
+        ) = await async_validate_module_dict(module, rules)
 
         # Update module validation status
         await db.data_modules.update_one(
@@ -660,6 +695,31 @@ async def validate_data_module(dmc: str):
     except Exception as e:
         logger.error(f"Error validating data module: {str(e)}")
         raise HTTPException(500, f"Error validating data module: {str(e)}")
+
+
+@api_router.post("/fix-module/{dmc}")
+async def fix_data_module(dmc: str, method: str = "ai"):
+    """Attempt automatic correction of a data module."""
+    try:
+        module = await db.data_modules.find_one({"dmc": dmc})
+        if not module:
+            raise HTTPException(404, "Data module not found")
+
+        dm = DataModule(**module)
+        if method == "ai":
+            review = await document_service.review_module_ai(dm.content)
+            suggested = review.get("suggested_text")
+            issues = review.get("issues", [])
+            if suggested:
+                dm.content = suggested
+            dm.ai_suggestions = review
+            dm.processing_logs.append({"fix": "ai", "issues": issues})
+        await db.data_modules.update_one({"dmc": dmc}, {"$set": dm.dict()})
+        await document_service.refresh_cross_references()
+        return {"message": "Data module updated", "dmc": dmc}
+    except Exception as e:
+        logger.error(f"Error fixing data module: {str(e)}")
+        raise HTTPException(500, f"Error fixing data module: {str(e)}")
 
 # Publication Module endpoints
 @api_router.get("/publication-modules")

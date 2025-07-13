@@ -6,6 +6,7 @@ import aiofiles
 from typing import List, Dict, Any, Callable
 from pathlib import Path
 import shutil
+import os
 from PyPDF2 import PdfReader
 from pptx import Presentation
 from openpyxl import load_workbook
@@ -22,6 +23,7 @@ import asyncio
 import uuid
 import re
 import logging
+from datetime import datetime
 
 from ..models.document import (
     UploadedDocument,
@@ -311,11 +313,65 @@ class DocumentService:
             parts.append(f"<caution><cautiontext><para>{c}</para></cautiontext></caution>")
         return "\n".join(parts)
 
+    async def gather_all_documents_text(self, exclude_id: str | None = None) -> str:
+        """Concatenate text from all uploaded documents."""
+        if not self.db:
+            return ""
+        docs = await self.db.documents.find().to_list(1000)
+        texts: list[str] = []
+        for d in docs:
+            if exclude_id and d.get("id") == exclude_id:
+                continue
+            try:
+                txt = await self.extract_text_from_document(UploadedDocument(**d))
+                if txt:
+                    texts.append(txt)
+            except Exception:
+                continue
+        return "\n".join(texts)
+
+    async def review_module_ai(self, content: str) -> Dict[str, Any]:
+        """Use AI provider to review module content."""
+        if not (os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
+            return {"issues": [], "suggested_text": content}
+        provider = ProviderFactory.create_text_provider()
+        req = TextProcessingRequest(text=content, task_type="review")
+        res = await provider.review_module(req)
+        return res.result
+
+    async def refresh_cross_references(self) -> None:
+        """Update dm_refs and icn_refs across all modules based on content."""
+        if not self.db:
+            return
+        modules = await self.db.data_modules.find().to_list(1000)
+        icns = await self.db.icns.find().to_list(1000)
+        lcn_set = {i.get("lcn") for i in icns}
+        dmc_set = {m.get("dmc") for m in modules}
+        for m in modules:
+            dm_refs = set(m.get("dm_refs", []))
+            icn_refs = set(m.get("icn_refs", []))
+            content = m.get("content", "")
+            for dmc in dmc_set:
+                if dmc != m.get("dmc") and dmc in content:
+                    dm_refs.add(dmc)
+            for lcn in lcn_set:
+                if lcn in content:
+                    icn_refs.add(lcn)
+            if dm_refs != set(m.get("dm_refs", [])) or icn_refs != set(m.get("icn_refs", [])):
+                await self.db.data_modules.update_one(
+                    {"dmc": m.get("dmc")},
+                    {"$set": {"dm_refs": list(dm_refs), "icn_refs": list(icn_refs), "updated_at": datetime.utcnow()}}
+                )
+
     async def process_document_with_ai(
         self, document: UploadedDocument, text_content: str
     ) -> List[DataModule]:
         await self.load_settings()
         text_provider = ProviderFactory.create_text_provider()
+        if self.db:
+            extra_text = await self.gather_all_documents_text(exclude_id=document.id)
+            if extra_text:
+                text_content = f"{text_content}\n{extra_text}"[:10000]
         try:
             classification = TextProcessingRequest(
                 text=text_content, task_type="classify"

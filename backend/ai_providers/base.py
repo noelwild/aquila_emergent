@@ -57,6 +57,11 @@ class TextProvider(ABC):
         """Rewrite text to ASD-STE100 compliance."""
         pass
 
+    @abstractmethod
+    async def review_module(self, request: TextProcessingRequest) -> TextProcessingResponse:
+        """Review text for grammar, STE compliance and logical consistency."""
+        pass
+
 
 class VisionProvider(ABC):
     """Abstract base class for vision processing providers."""

@@ -59,6 +59,7 @@ class DataModule(BaseDocument):
     icn_valid: bool = False
     applicability_valid: bool = False
     ste_score: float = 0.0
+    ai_suggestions: Dict[str, Any] = {}
 
     # Metadata
     source_document_id: str

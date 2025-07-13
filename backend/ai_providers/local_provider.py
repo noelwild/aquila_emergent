@@ -146,6 +146,20 @@ class LocalTextProvider(TextProvider):
             model_used=self.model_name,
         )
 
+    async def review_module(self, request: TextProcessingRequest) -> TextProcessingResponse:
+        """Basic local review returning the original text as suggestion."""
+        start_time = time.time()
+        issues = []
+        if len(request.text.split()) > 200:
+            issues.append("module too long for local review")
+        return TextProcessingResponse(
+            result={"issues": issues, "suggested_text": request.text},
+            confidence=0.0,
+            processing_time=time.time() - start_time,
+            provider="local",
+            model_used=self.model_name,
+        )
+
 
 class LocalVisionProvider(VisionProvider):
     """Local vision processing provider using torchvision and Hugging Face models."""
