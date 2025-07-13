@@ -121,6 +121,11 @@ function AquilaProvider({ children }) {
   const [showAIProviderModal, setShowAIProviderModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [settings, setSettings] = useState(null);
+  const [brexReady, setBrexReady] = useState(false);
+  const [projectName, setProjectName] = useState(
+    localStorage.getItem('aquila.project') || 'Default'
+  );
   const [aiProviders, setAIProviders] = useState({
     text: 'openai',
     vision: 'openai',
@@ -135,6 +140,7 @@ function AquilaProvider({ children }) {
     loadDocuments();
     loadICNs();
     loadAIProviders();
+    loadSettings();
   }, []);
 
   const loadDataModules = async () => {
@@ -171,6 +177,17 @@ function AquilaProvider({ children }) {
       setAIProviders(response.data.current);
     } catch (error) {
       console.error('Error loading AI providers:', error);
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const { data } = await api.get('/api/settings');
+      setSettings(data);
+      const ready = data.brex_rules && Object.keys(data.brex_rules).length > 0;
+      setBrexReady(ready);
+    } catch (error) {
+      console.error('Error loading settings:', error);
     }
   };
 
@@ -280,6 +297,38 @@ function AquilaProvider({ children }) {
     }
   };
 
+  const createProject = (name) => {
+    setProjectName(name);
+    localStorage.setItem('aquila.project', name);
+    const list = JSON.parse(localStorage.getItem('aquila.projects') || '[]');
+    if (!list.includes(name)) {
+      list.push(name);
+      localStorage.setItem('aquila.projects', JSON.stringify(list));
+    }
+    // Clear current data when starting a new project
+    setDataModules([]);
+    setDocuments([]);
+    setIcns([]);
+    setBrexReady(false);
+    loadSettings();
+  };
+
+  const selectProject = (name) => {
+    setProjectName(name);
+    localStorage.setItem('aquila.project', name);
+    setDataModules([]);
+    setDocuments([]);
+    setIcns([]);
+    loadSettings();
+    loadDataModules();
+    loadDocuments();
+    loadICNs();
+  };
+
+  const getProjectList = () => {
+    return JSON.parse(localStorage.getItem('aquila.projects') || '[]');
+  };
+
   const contextValue = {
     // State
     currentDocument,
@@ -293,6 +342,9 @@ function AquilaProvider({ children }) {
     processing,
     aiProviders,
     locked,
+    projectName,
+    settings,
+    brexReady,
 
     // Actions
     setCurrentDocument,
@@ -308,7 +360,11 @@ function AquilaProvider({ children }) {
     exportDataModule,
     loadDataModules,
     loadDocuments,
-    loadICNs
+    loadICNs,
+    loadSettings,
+    createProject,
+    selectProject,
+    getProjectList
   };
 
   return (
