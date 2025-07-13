@@ -492,3 +492,5 @@ agent_communication:
     message: "Added automatic hotspot sync for ICN updates."
   - agent: "main"
     message: "Added project selection modal and start button with BREX rule check"
+  - agent: "main"
+    message: "Updated Sidebar to use project data and added 401 handler"

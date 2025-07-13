@@ -309,11 +309,20 @@ function AquilaProvider({ children }) {
     setDataModules([]);
     setDocuments([]);
     setIcns([]);
+    setBrexReady(false);
+    loadSettings();
   };
 
   const selectProject = (name) => {
     setProjectName(name);
     localStorage.setItem('aquila.project', name);
+    setDataModules([]);
+    setDocuments([]);
+    setIcns([]);
+    loadSettings();
+    loadDataModules();
+    loadDocuments();
+    loadICNs();
   };
 
   const getProjectList = () => {
