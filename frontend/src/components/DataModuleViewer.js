@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAquila } from '../contexts/AquilaContext';
 import { FileText, AlertCircle, CheckCircle, Clock, Settings } from 'lucide-react';
+import { api } from '../lib/api';
 
 const DataModuleViewer = ({ dataModule, variant }) => {
   const { updateDataModule, locked } = useAquila();
@@ -77,9 +78,7 @@ const DataModuleViewer = ({ dataModule, variant }) => {
     const methods = new Set(Object.values(correctionSelections));
     for (const method of methods) {
       try {
-        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/fix-module/${dataModule.dmc}?method=${method}`, {
-          method: 'POST'
-        });
+        await api.post(`/api/fix-module/${dataModule.dmc}?method=${method}`);
       } catch (e) {
         console.error('Error applying corrections:', e);
       }

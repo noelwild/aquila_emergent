@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAquila } from '../contexts/AquilaContext';
 import { X, Cpu, Check, AlertCircle, Zap } from 'lucide-react';
-import axios from 'axios';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { api } from '../lib/api';
 
 const AIProviderModal = ({ onClose }) => {
   const { aiProviders, updateAIProviders } = useAquila();
@@ -23,7 +20,7 @@ const AIProviderModal = ({ onClose }) => {
 
   const loadProviderConfig = async () => {
     try {
-      const response = await axios.get(`${API}/providers`);
+      const response = await api.get(`/api/providers`);
       setProviderConfig(response.data.config);
     } catch (error) {
       console.error('Error loading provider config:', error);
@@ -50,7 +47,7 @@ const AIProviderModal = ({ onClose }) => {
   const testTextProvider = async (provider) => {
     setTestingProvider(`text-${provider}`);
     try {
-      const response = await axios.post(`${API}/test/text`, {
+      const response = await api.post(`/api/test/text`, {
         text: "This is a test procedure for equipment maintenance. Step 1: Check power supply. Step 2: Inspect connections.",
         task_type: "classify"
       });
@@ -74,7 +71,7 @@ const AIProviderModal = ({ onClose }) => {
       // Create a simple test image (1x1 pixel PNG base64)
       const testImage = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
       
-      const response = await axios.post(`${API}/test/vision`, {
+      const response = await api.post(`/api/test/vision`, {
         image_data: testImage,
         task_type: "caption"
       });

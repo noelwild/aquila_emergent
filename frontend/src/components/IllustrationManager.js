@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAquila } from '../contexts/AquilaContext';
+import { api } from '../lib/api';
 import { 
   Image, 
   Edit, 
@@ -188,18 +189,10 @@ const IllustrationManager = () => {
       const imageData = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
       
       // Get AI suggestions for hotspots
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/test/vision`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          image_data: imageData,
-          task_type: 'hotspots'
-        })
+      const { data: result } = await api.post(`/api/test/vision`, {
+        image_data: imageData,
+        task_type: 'hotspots',
       });
-      
-      const result = await response.json();
       
       if (result.hotspots && result.hotspots.length > 0) {
         const suggestions = result.hotspots.map((spot, index) => ({
@@ -289,15 +282,9 @@ const IllustrationManager = () => {
     if (!selectedICN) return;
 
     try {
-      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/icns/${selectedICN.icn_id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          caption: editedCaption,
-          hotspots: hotspots
-        })
+      await api.put(`/api/icns/${selectedICN.icn_id}`, {
+        caption: editedCaption,
+        hotspots: hotspots,
       });
 
       setEditingCaption(false);
@@ -351,7 +338,7 @@ const IllustrationManager = () => {
               >
                 <div className="aspect-square mb-2 bg-aquila-bg rounded overflow-hidden">
                   <img
-                    src={`${process.env.REACT_APP_BACKEND_URL}/api/icns/${icn.icn_id}/image`}
+                    src={`${process.env.REACT_APP_API_URL}/api/icns/${icn.icn_id}/image?token=${localStorage.getItem('aquila.jwt')}`}
                     alt={icn.filename}
                     className="w-full h-full object-cover"
                   />
@@ -506,7 +493,7 @@ const IllustrationManager = () => {
                     
                     <img
                       ref={imageRef}
-                      src={`${process.env.REACT_APP_BACKEND_URL}/api/icns/${selectedICN.icn_id}/image`}
+                      src={`${process.env.REACT_APP_API_URL}/api/icns/${selectedICN.icn_id}/image?token=${localStorage.getItem('aquila.jwt')}`}
                       alt={selectedICN.filename}
                       className="w-full h-auto"
                       style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}

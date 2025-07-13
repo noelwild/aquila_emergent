@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAquila } from '../contexts/AquilaContext';
 import { FileText, Plus, Save, Eye, Download, Trash2, GripVertical } from 'lucide-react';
+import { api } from '../lib/api';
 
 const PMBuilder = () => {
   const { dataModules } = useAquila();
@@ -18,9 +19,8 @@ const PMBuilder = () => {
 
   const loadPublicationModules = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/publication-modules`);
-      const pms = await response.json();
-      setPublicationModules(pms);
+      const { data } = await api.get('/api/publication-modules');
+      setPublicationModules(data);
     } catch (error) {
       console.error('Error loading publication modules:', error);
     }
@@ -56,17 +56,8 @@ const PMBuilder = () => {
         structure: pmStructure
       };
 
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/publication-modules`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(pmData)
-      });
-
-      if (response.ok) {
-        await loadPublicationModules();
-      }
+      await api.post('/api/publication-modules', pmData);
+      await loadPublicationModules();
     } catch (error) {
       console.error('Error saving PM:', error);
     } finally {
@@ -171,21 +162,14 @@ const PMBuilder = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/publication-modules/${selectedPM.pm_code}/publish`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const { data } = await api.post(
+        `/api/publication-modules/${selectedPM.pm_code}/publish`,
+        {
           formats: ['xml', 'html', 'pdf'],
-          variants: ['verbatim', 'ste']
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Publication result:', result);
-      }
+          variants: ['verbatim', 'ste'],
+        }
+      );
+      console.log('Publication result:', data);
     } catch (error) {
       console.error('Error publishing PM:', error);
     } finally {
