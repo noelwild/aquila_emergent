@@ -30,7 +30,7 @@ from ..models.document import (
     ProcessingTask,
     PublicationModule,
 )
-from ..models.base import DMTypeEnum, SettingsModel, StructureType
+from ..models.base import DMTypeEnum, SettingsModel, StructureType, SecurityLevel
 from ..ai_providers.provider_factory import ProviderFactory
 from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
 
@@ -107,7 +107,11 @@ class DocumentService:
         return self.settings
 
     async def upload_document(
-        self, file_data: bytes, filename: str, mime_type: str
+        self,
+        file_data: bytes,
+        filename: str,
+        mime_type: str,
+        security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED,
     ) -> UploadedDocument:
         """Upload and store a document."""
         sha256_hash = hashlib.sha256(file_data).hexdigest()
@@ -123,6 +127,7 @@ class DocumentService:
             mime_type=mime_type,
             file_size=len(file_data),
             sha256_hash=sha256_hash,
+            security_level=security_level,
             metadata={},
         )
 
@@ -282,6 +287,30 @@ class DocumentService:
             logger.error(f"Error processing image: {e}")
             return []
 
+    def _parse_warnings_cautions(self, text: str) -> tuple[list[str], list[str]]:
+        """Extract warnings and cautions from plain text."""
+        warnings: list[str] = []
+        cautions: list[str] = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            lower = stripped.lower()
+            if lower.startswith("warning"):
+                part = stripped.split(":", 1)
+                warnings.append(part[1].strip() if len(part) > 1 else stripped[7:].strip())
+            elif lower.startswith("caution"):
+                part = stripped.split(":", 1)
+                cautions.append(part[1].strip() if len(part) > 1 else stripped[7:].strip())
+        return warnings, cautions
+
+    def _format_warnings_cautions(self, warnings: list[str], cautions: list[str]) -> str:
+        """Format warnings and cautions using S1000D tags."""
+        parts: list[str] = []
+        for w in warnings:
+            parts.append(f"<warning><warningtext><para>{w}</para></warningtext></warning>")
+        for c in cautions:
+            parts.append(f"<caution><cautiontext><para>{c}</para></cautiontext></caution>")
+        return "\n".join(parts)
+
     async def process_document_with_ai(
         self, document: UploadedDocument, text_content: str
     ) -> List[DataModule]:
@@ -308,13 +337,21 @@ class DocumentService:
                 if r.get("type") in {"figure", "image", "table"}
             ]
 
+            warn_provider = extract_res.result.get("warnings", [])
+            caution_provider = extract_res.result.get("cautions", [])
+            warn_text, caution_text = self._parse_warnings_cautions(text_content)
+            warnings = list({*warn_provider, *warn_text})
+            cautions = list({*caution_provider, *caution_text})
+            wc_prefix = self._format_warnings_cautions(warnings, cautions)
+
             verbatim = DataModule(
                 dmc=self._generate_dmc(class_response.result),
                 title=class_response.result.get("title", "Untitled Document"),
                 dm_type=DMTypeEnum(class_response.result.get("dm_type", "GEN")),
                 info_variant="00",
-                content=text_content,
+                content="{}\n{}".format(wc_prefix, text_content).strip(),
                 source_document_id=document.id,
+                security_level=document.security_level,
                 processing_status="completed",
                 dm_refs=dm_refs,
                 icn_refs=icn_refs,
@@ -330,8 +367,12 @@ class DocumentService:
                     title=class_response.result.get("title", "Untitled Document"),
                     dm_type=DMTypeEnum(class_response.result.get("dm_type", "GEN")),
                     info_variant="01",
-                    content=rewrite_res.result.get("rewritten_text", text_content),
+                    content="{}\n{}".format(
+                        wc_prefix,
+                        rewrite_res.result.get("rewritten_text", text_content),
+                    ).strip(),
                     source_document_id=document.id,
+                    security_level=document.security_level,
                     ste_score=rewrite_res.result.get("ste_score", 0.0),
                     processing_status="completed",
                     dm_refs=dm_refs,
@@ -346,8 +387,9 @@ class DocumentService:
                 title=document.filename,
                 dm_type=DMTypeEnum.GEN,
                 info_variant="00",
-                content=text_content,
+                content="{}\n{}".format(self._format_warnings_cautions(*self._parse_warnings_cautions(text_content)), text_content).strip(),
                 source_document_id=document.id,
+                security_level=document.security_level,
                 processing_status="error",
                 dm_refs=[],
                 icn_refs=[],

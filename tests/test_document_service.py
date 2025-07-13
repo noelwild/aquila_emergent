@@ -9,10 +9,11 @@ from reportlab.pdfgen import canvas
 
 from backend.services.document_service import DocumentService
 from backend.models.document import UploadedDocument, DataModule, PublicationModule
-from backend.models.base import DMTypeEnum
-import asyncio
-import hashlib
+from backend.models.base import DMTypeEnum, SecurityLevel
 import zipfile
+import os
+import types
+from backend.ai_providers.provider_factory import ProviderFactory
 
 
 def create_docx(path: Path, text: str):
@@ -124,3 +125,42 @@ def test_publish_publication_module(tmp_path):
         assert f"{dm1.dmc}_{dm1.info_variant}.xml" in names
         assert f"{dm1.dmc}_{dm1.info_variant}.html" in names
         assert f"{dm1.dmc}_{dm1.info_variant}.pdf" in names
+
+
+def test_process_document_carries_security_and_warnings(tmp_path):
+    text = "WARNING: Hot surface\nCAUTION: Wear gloves\nStep 1"
+    file_path = tmp_path / "s.txt"
+    file_path.write_text(text)
+    sha = hashlib.sha256(text.encode()).hexdigest()
+    doc = UploadedDocument(
+        filename="s.txt",
+        file_path=str(file_path),
+        mime_type="text/plain",
+        file_size=len(text),
+        sha256_hash=sha,
+        security_level=SecurityLevel.SECRET,
+        metadata={},
+    )
+
+    class DummyProvider:
+        async def classify_document(self, request):
+            return types.SimpleNamespace(result={"dm_type": "GEN", "title": "T"})
+
+        async def extract_structured_data(self, request):
+            return types.SimpleNamespace(result={"references": [], "warnings": ["Hot surface"], "cautions": ["Wear gloves"]})
+
+        async def rewrite_to_ste(self, request):
+            return types.SimpleNamespace(result={"rewritten_text": request.text, "ste_score": 1.0})
+
+    service = DocumentService(upload_path=tmp_path)
+    orig_factory = ProviderFactory.create_text_provider
+    ProviderFactory.create_text_provider = lambda: DummyProvider()
+    try:
+        modules = asyncio.run(service.process_document_with_ai(doc, text))
+    finally:
+        ProviderFactory.create_text_provider = orig_factory
+    assert modules
+    for m in modules:
+        assert m.security_level == SecurityLevel.SECRET
+        assert "<warning>" in m.content
+        assert "<caution>" in m.content

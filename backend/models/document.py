@@ -14,6 +14,7 @@ class UploadedDocument(BaseDocument):
     mime_type: str
     file_size: int
     sha256_hash: str
+    security_level: SecurityLevel = SecurityLevel.UNCLASSIFIED
     status: str = "uploaded"
     processing_status: str = "pending"
     metadata: Dict[str, Any] = {}
