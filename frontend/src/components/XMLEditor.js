@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import MonacoEditor from 'react-monaco-editor';
-import { Check, X, Settings, Code } from 'lucide-react';
+import { Check, X, Settings, Code, FileText } from 'lucide-react';
+import RichTextEditor from './RichTextEditor';
 
 const XMLEditor = ({ content, language = 'xml', readOnly = false, onChange }) => {
   const [editorContent, setEditorContent] = useState(content || '');
   const [isDirty, setIsDirty] = useState(false);
   const [isValid, setIsValid] = useState(true);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [mode, setMode] = useState('xml');
   const editorRef = useRef(null);
 
   useEffect(() => {
@@ -135,13 +137,29 @@ const XMLEditor = ({ content, language = 'xml', readOnly = false, onChange }) =>
             </span>
           </div>
           
-          <button
-            onClick={formatXML}
-            className="aquila-button-secondary text-xs px-2 py-1"
-            disabled={readOnly}
-          >
-            Format
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setMode('xml')}
+              className={`aquila-button-secondary text-xs px-2 py-1 ${mode === 'xml' ? 'bg-aquila-primary text-white' : ''}`}
+              disabled={readOnly}
+            >
+              XML
+            </button>
+            <button
+              onClick={() => setMode('visual')}
+              className={`aquila-button-secondary text-xs px-2 py-1 ${mode === 'visual' ? 'bg-aquila-primary text-white' : ''}`}
+              disabled={readOnly}
+            >
+              Visual
+            </button>
+            <button
+              onClick={formatXML}
+              className="aquila-button-secondary text-xs px-2 py-1"
+              disabled={readOnly}
+            >
+              Format
+            </button>
+          </div>
           
           <button
             className="aquila-icon-button p-1"
@@ -154,15 +172,23 @@ const XMLEditor = ({ content, language = 'xml', readOnly = false, onChange }) =>
 
       {/* Editor Content */}
       <div className="flex-1 bg-gray-900">
-        <MonacoEditor
-          language={language}
-          value={editorContent}
-          onChange={handleEditorChange}
-          editorDidMount={editorDidMount}
-          options={editorOptions}
-          height="100%"
-          width="100%"
-        />
+        {mode === 'xml' ? (
+          <MonacoEditor
+            language={language}
+            value={editorContent}
+            onChange={handleEditorChange}
+            editorDidMount={editorDidMount}
+            options={editorOptions}
+            height="100%"
+            width="100%"
+          />
+        ) : (
+          <RichTextEditor
+            content={editorContent}
+            onChange={handleEditorChange}
+            readOnly={readOnly}
+          />
+        )}
       </div>
 
       {/* Validation Errors */}
