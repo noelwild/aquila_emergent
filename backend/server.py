@@ -98,11 +98,12 @@ else:
 
 # Load S1000D BREX rule set for XML validation
 S1000D_BREX_PATH = ROOT_DIR / "s1000d_brex_rules.json"
+ALL_BREX_RULES: List[Dict[str, Any]] = []
+S1000D_BREX_RULES: List[Dict[str, Any]] = []
 if S1000D_BREX_PATH.exists():
     with open(S1000D_BREX_PATH, "r") as f:
-        S1000D_BREX_RULES: List[Dict[str, Any]] = json.load(f)
-else:
-    S1000D_BREX_RULES = []
+        ALL_BREX_RULES = json.load(f)
+    S1000D_BREX_RULES = ALL_BREX_RULES.copy()
 
 # Initialize document service (settings loaded later)
 document_service = DocumentService(db=db)
@@ -366,6 +367,24 @@ async def get_settings():
 async def get_default_brex_rules():
     """Return the built-in default BREX rules."""
     return DEFAULT_BREX_RULES
+
+
+@api_router.get("/brex-xml-rules")
+async def get_xml_brex_rules():
+    """Return the loaded XML BREX rules."""
+    return ALL_BREX_RULES
+
+
+@api_router.post("/brex-xml-rules")
+async def set_xml_brex_rules(payload: Dict[str, Any]):
+    """Set the active XML BREX rules by id list."""
+    global S1000D_BREX_RULES
+    ids = payload.get("enabled_ids") or []
+    if not ids:
+        S1000D_BREX_RULES = ALL_BREX_RULES.copy()
+    else:
+        S1000D_BREX_RULES = [r for r in ALL_BREX_RULES if r.get("id") in ids]
+    return {"count": len(S1000D_BREX_RULES)}
 
 
 @api_router.post("/settings")
