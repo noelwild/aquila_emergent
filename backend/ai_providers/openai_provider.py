@@ -1,29 +1,50 @@
 """OpenAI provider implementation."""
 
-import openai
-import base64
-import time
-from typing import Dict, Any, List
-from .base import TextProvider, VisionProvider, TextProcessingRequest, TextProcessingResponse
-from .base import VisionProcessingRequest, VisionProcessingResponse
-import os
-import json
 import asyncio
+import base64
+import json
+import os
+import time
+from pathlib import Path
+from typing import Any, Dict, List
+
+import openai
+from dotenv import load_dotenv
+
+from .base import (
+    TextProcessingRequest,
+    TextProcessingResponse,
+    TextProvider,
+    VisionProcessingRequest,
+    VisionProcessingResponse,
+    VisionProvider,
+)
+
+# Ensure environment variables are loaded even if the server did not call
+# ``load_dotenv`` for some reason. This uses the ``backend/.env`` file relative
+# to this provider module.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
 
 class OpenAITextProvider(TextProvider):
     """OpenAI text processing provider."""
-    
+
     def __init__(self, model: str | None = None):
-        self.client = openai.AsyncOpenAI(
-            api_key=os.environ.get("OPENAI_API_KEY")
-        )
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY environment variable not set. "
+                "Ensure it is defined in backend/.env or the execution environment."
+            )
+        self.client = openai.AsyncOpenAI(api_key=api_key)
         self.model = model or os.environ.get("TEXT_MODEL", "gpt-4o-mini")
-    
-    async def classify_document(self, request: TextProcessingRequest) -> TextProcessingResponse:
+
+    async def classify_document(
+        self, request: TextProcessingRequest
+    ) -> TextProcessingResponse:
         """Classify document type and extract basic metadata."""
         start_time = time.time()
-        
+
         prompt = f"""
         Analyze this text and classify it according to S1000D data module types.
         
@@ -41,24 +62,24 @@ class OpenAITextProvider(TextProvider):
             }}
         }}
         """
-        
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=500
+                max_tokens=500,
             )
-            
+
             result = json.loads(response.choices[0].message.content)
             processing_time = time.time() - start_time
-            
+
             return TextProcessingResponse(
                 result=result,
                 confidence=result.get("confidence", 0.0),
                 processing_time=processing_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
         except Exception as e:
             return TextProcessingResponse(
@@ -66,13 +87,15 @@ class OpenAITextProvider(TextProvider):
                 confidence=0.0,
                 processing_time=time.time() - start_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
-    
-    async def extract_structured_data(self, request: TextProcessingRequest) -> TextProcessingResponse:
+
+    async def extract_structured_data(
+        self, request: TextProcessingRequest
+    ) -> TextProcessingResponse:
         """Extract structured data from text."""
         start_time = time.time()
-        
+
         prompt = f"""
         Extract structured data from this technical text for S1000D data module creation.
         
@@ -100,24 +123,24 @@ class OpenAITextProvider(TextProvider):
             "notes": ["note 1", "note 2"]
         }}
         """
-        
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=2000
+                max_tokens=2000,
             )
-            
+
             result = json.loads(response.choices[0].message.content)
             processing_time = time.time() - start_time
-            
+
             return TextProcessingResponse(
                 result=result,
                 confidence=0.85,
                 processing_time=processing_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
         except Exception as e:
             return TextProcessingResponse(
@@ -125,13 +148,15 @@ class OpenAITextProvider(TextProvider):
                 confidence=0.0,
                 processing_time=time.time() - start_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
-    
-    async def rewrite_to_ste(self, request: TextProcessingRequest) -> TextProcessingResponse:
+
+    async def rewrite_to_ste(
+        self, request: TextProcessingRequest
+    ) -> TextProcessingResponse:
         """Rewrite text to ASD-STE100 compliance."""
         start_time = time.time()
-        
+
         prompt = f"""
         Rewrite this technical text to comply with ASD-STE100 (Simplified Technical English) standards.
         
@@ -153,24 +178,24 @@ class OpenAITextProvider(TextProvider):
             "warnings": ["warning if any"]
         }}
         """
-        
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=1500
+                max_tokens=1500,
             )
 
             result = json.loads(response.choices[0].message.content)
             processing_time = time.time() - start_time
-            
+
             return TextProcessingResponse(
                 result=result,
                 confidence=result.get("ste_score", 0.0),
                 processing_time=processing_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
         except Exception as e:
             return TextProcessingResponse(
@@ -178,10 +203,12 @@ class OpenAITextProvider(TextProvider):
                 confidence=0.0,
                 processing_time=time.time() - start_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
 
-    async def review_module(self, request: TextProcessingRequest) -> TextProcessingResponse:
+    async def review_module(
+        self, request: TextProcessingRequest
+    ) -> TextProcessingResponse:
         """Review text for grammar, STE compliance and logical consistency."""
         start_time = time.time()
 
@@ -197,7 +224,7 @@ class OpenAITextProvider(TextProvider):
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=1500
+                max_tokens=1500,
             )
 
             result = json.loads(response.choices[0].message.content)
@@ -208,7 +235,7 @@ class OpenAITextProvider(TextProvider):
                 confidence=1.0,
                 processing_time=processing_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
         except Exception as e:
             return TextProcessingResponse(
@@ -216,7 +243,7 @@ class OpenAITextProvider(TextProvider):
                 confidence=0.0,
                 processing_time=time.time() - start_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
 
 
@@ -224,15 +251,21 @@ class OpenAIVisionProvider(VisionProvider):
     """OpenAI vision processing provider."""
 
     def __init__(self, model: str | None = None):
-        self.client = openai.AsyncOpenAI(
-            api_key=os.environ.get("OPENAI_API_KEY")
-        )
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY environment variable not set. "
+                "Ensure it is defined in backend/.env or the execution environment."
+            )
+        self.client = openai.AsyncOpenAI(api_key=api_key)
         self.model = model or os.environ.get("VISION_MODEL", "gpt-4o-mini")
-    
-    async def generate_caption(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
+
+    async def generate_caption(
+        self, request: VisionProcessingRequest
+    ) -> VisionProcessingResponse:
         """Generate caption for image."""
         start_time = time.time()
-        
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -242,30 +275,30 @@ class OpenAIVisionProvider(VisionProvider):
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Generate a technical caption for this image suitable for S1000D documentation. Focus on technical accuracy and clarity."
+                                "text": "Generate a technical caption for this image suitable for S1000D documentation. Focus on technical accuracy and clarity.",
                             },
                             {
                                 "type": "image_url",
                                 "image_url": {
                                     "url": f"data:image/jpeg;base64,{request.image_data}"
-                                }
-                            }
-                        ]
+                                },
+                            },
+                        ],
                     }
                 ],
                 temperature=0.1,
-                max_tokens=200
+                max_tokens=200,
             )
-            
+
             caption = response.choices[0].message.content
             processing_time = time.time() - start_time
-            
+
             return VisionProcessingResponse(
                 caption=caption,
                 confidence=0.85,
                 processing_time=processing_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
         except Exception as e:
             return VisionProcessingResponse(
@@ -273,13 +306,15 @@ class OpenAIVisionProvider(VisionProvider):
                 confidence=0.0,
                 processing_time=time.time() - start_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
-    
-    async def detect_objects(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
+
+    async def detect_objects(
+        self, request: VisionProcessingRequest
+    ) -> VisionProcessingResponse:
         """Detect objects in image."""
         start_time = time.time()
-        
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -289,21 +324,21 @@ class OpenAIVisionProvider(VisionProvider):
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Identify and list all technical objects, components, and parts visible in this image. Return as a JSON array of object names."
+                                "text": "Identify and list all technical objects, components, and parts visible in this image. Return as a JSON array of object names.",
                             },
                             {
                                 "type": "image_url",
                                 "image_url": {
                                     "url": f"data:image/jpeg;base64,{request.image_data}"
-                                }
-                            }
-                        ]
+                                },
+                            },
+                        ],
                     }
                 ],
                 temperature=0.1,
-                max_tokens=300
+                max_tokens=300,
             )
-            
+
             content = response.choices[0].message.content
             try:
                 objects = json.loads(content)
@@ -311,15 +346,15 @@ class OpenAIVisionProvider(VisionProvider):
                     objects = [content]
             except:
                 objects = [content]
-            
+
             processing_time = time.time() - start_time
-            
+
             return VisionProcessingResponse(
                 objects=objects,
                 confidence=0.80,
                 processing_time=processing_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
         except Exception as e:
             return VisionProcessingResponse(
@@ -327,13 +362,15 @@ class OpenAIVisionProvider(VisionProvider):
                 confidence=0.0,
                 processing_time=time.time() - start_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
-    
-    async def generate_hotspots(self, request: VisionProcessingRequest) -> VisionProcessingResponse:
+
+    async def generate_hotspots(
+        self, request: VisionProcessingRequest
+    ) -> VisionProcessingResponse:
         """Generate hotspot suggestions."""
         start_time = time.time()
-        
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -343,21 +380,21 @@ class OpenAIVisionProvider(VisionProvider):
                         "content": [
                             {
                                 "type": "text",
-                                "text": "Identify key areas in this technical image that should have interactive hotspots. Return coordinates and descriptions in JSON format: [{\"x\": 100, \"y\": 150, \"width\": 50, \"height\": 30, \"description\": \"component name\"}]"
+                                "text": 'Identify key areas in this technical image that should have interactive hotspots. Return coordinates and descriptions in JSON format: [{"x": 100, "y": 150, "width": 50, "height": 30, "description": "component name"}]',
                             },
                             {
                                 "type": "image_url",
                                 "image_url": {
                                     "url": f"data:image/jpeg;base64,{request.image_data}"
-                                }
-                            }
-                        ]
+                                },
+                            },
+                        ],
                     }
                 ],
                 temperature=0.1,
-                max_tokens=500
+                max_tokens=500,
             )
-            
+
             content = response.choices[0].message.content
             try:
                 hotspots = json.loads(content)
@@ -365,15 +402,15 @@ class OpenAIVisionProvider(VisionProvider):
                     hotspots = []
             except:
                 hotspots = []
-            
+
             processing_time = time.time() - start_time
-            
+
             return VisionProcessingResponse(
                 hotspots=hotspots,
                 confidence=0.75,
                 processing_time=processing_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
         except Exception as e:
             return VisionProcessingResponse(
@@ -381,5 +418,5 @@ class OpenAIVisionProvider(VisionProvider):
                 confidence=0.0,
                 processing_time=time.time() - start_time,
                 provider="openai",
-                model_used=self.model
+                model_used=self.model,
             )
