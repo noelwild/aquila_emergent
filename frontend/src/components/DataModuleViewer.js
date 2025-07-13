@@ -6,6 +6,7 @@ const DataModuleViewer = ({ dataModule, variant }) => {
   const { updateDataModule, locked } = useAquila();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
+  const [errorSelections, setErrorSelections] = useState({});
 
   useEffect(() => {
     if (dataModule) {
@@ -51,6 +52,24 @@ const DataModuleViewer = ({ dataModule, variant }) => {
         </div>
       </div>
     `;
+  };
+
+  const toggleSelection = (idx, type) => {
+    setErrorSelections((prev) => {
+      const current = prev[idx];
+      return { ...prev, [idx]: current === type ? null : type };
+    });
+  };
+
+  const handleApplyFixes = () => {
+    const selections = Object.entries(errorSelections).filter(([, v]) => v);
+    if (selections.length === 0) {
+      alert('No corrections selected');
+      return;
+    }
+    // In a real implementation we would call the backend to perform fixes
+    alert('Corrections applied');
+    setErrorSelections({});
   };
 
   const getStatusIcon = (status) => {
@@ -129,9 +148,42 @@ const DataModuleViewer = ({ dataModule, variant }) => {
                 <h4 className="text-sm font-medium text-red-400 mb-2">Validation Errors:</h4>
                 <ul className="text-sm text-red-300 space-y-1">
                   {dataModule.validation_errors.map((error, index) => (
-                    <li key={index}>• {error}</li>
+                    <li key={index} className="flex items-start gap-2">
+                      <span
+                        className="grow cursor-pointer"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        • {error}
+                      </span>
+                      <div className="flex gap-2">
+                        <label className="flex items-center gap-1 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={errorSelections[index] === 'fix'}
+                            onChange={() => toggleSelection(index, 'fix')}
+                          />
+                          <span>Fix</span>
+                        </label>
+                        {error.toLowerCase().includes('content') && (
+                          <label className="flex items-center gap-1 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={errorSelections[index] === 'ai'}
+                              onChange={() => toggleSelection(index, 'ai')}
+                            />
+                            <span>AI</span>
+                          </label>
+                        )}
+                      </div>
+                    </li>
                   ))}
                 </ul>
+                <button
+                  className="aquila-button text-xs px-2 py-1 mt-2"
+                  onClick={handleApplyFixes}
+                >
+                  Apply Corrections
+                </button>
               </div>
             )}
             
