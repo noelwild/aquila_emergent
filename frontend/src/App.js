@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import axios from 'axios';
+import { api } from './lib/api';
 import './App.css';
 
 // Components
@@ -13,12 +13,15 @@ import BREXDesigner from './components/BREXDesigner';
 import PMBuilder from './components/PMBuilder';
 import AIProviderModal from './components/AIProviderModal';
 import PublishModal from './components/PublishModal';
+import Login from './components/Login';
 import AquilaContext from './contexts/AquilaContext';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
 
 function App() {
+  const token = localStorage.getItem('aquila.jwt');
+  if (!token) {
+    return <Login />;
+  }
   return (
     <BrowserRouter>
       <AquilaProvider>
@@ -136,7 +139,7 @@ function AquilaProvider({ children }) {
 
   const loadDataModules = async () => {
     try {
-      const response = await axios.get(`${API}/data-modules`);
+      const response = await api.get(`/api/data-modules`);
       setDataModules(response.data);
       calculateGlobalLEDStatus(response.data);
     } catch (error) {
@@ -146,7 +149,7 @@ function AquilaProvider({ children }) {
 
   const loadDocuments = async () => {
     try {
-      const response = await axios.get(`${API}/documents`);
+      const response = await api.get(`/api/documents`);
       setDocuments(response.data);
     } catch (error) {
       console.error('Error loading documents:', error);
@@ -155,7 +158,7 @@ function AquilaProvider({ children }) {
 
   const loadICNs = async () => {
     try {
-      const response = await axios.get(`${API}/icns`);
+      const response = await api.get(`/api/icns`);
       setIcns(response.data);
     } catch (error) {
       console.error('Error loading ICNs:', error);
@@ -164,7 +167,7 @@ function AquilaProvider({ children }) {
 
   const loadAIProviders = async () => {
     try {
-      const response = await axios.get(`${API}/providers`);
+      const response = await api.get(`/api/providers`);
       setAIProviders(response.data.current);
     } catch (error) {
       console.error('Error loading AI providers:', error);
@@ -194,7 +197,7 @@ function AquilaProvider({ children }) {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await axios.post(`${API}/documents/upload`, formData, {
+      const response = await api.post(`/api/documents/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -213,7 +216,7 @@ function AquilaProvider({ children }) {
   const processDocument = async (documentId) => {
     setProcessing(true);
     try {
-      const response = await axios.post(`${API}/documents/${documentId}/process`);
+      const response = await api.post(`/api/documents/${documentId}/process`);
       await loadDataModules();
       await loadICNs();
       return response.data;
@@ -227,7 +230,7 @@ function AquilaProvider({ children }) {
 
   const updateDataModule = async (dmc, updates) => {
     try {
-      await axios.put(`${API}/data-modules/${dmc}`, updates);
+      await api.put(`/api/data-modules/${dmc}`, updates);
       await loadDataModules();
     } catch (error) {
       console.error('Error updating data module:', error);
@@ -237,7 +240,7 @@ function AquilaProvider({ children }) {
 
   const updateAIProviders = async (textProvider, visionProvider, textModel, visionModel) => {
     try {
-      await axios.post(`${API}/providers/set`, null, {
+      await api.post(`/api/providers/set`, null, {
         params: { text_provider: textProvider, vision_provider: visionProvider, text_model: textModel, vision_model: visionModel }
       });
       setAIProviders({ text: textProvider, vision: visionProvider, textModel, visionModel });
@@ -249,7 +252,7 @@ function AquilaProvider({ children }) {
 
   const deleteDataModule = async (dmc) => {
     try {
-      await axios.delete(`${API}/data-modules/${dmc}`);
+      await api.delete(`/api/data-modules/${dmc}`);
       if (currentDataModule?.dmc === dmc) {
         setCurrentDataModule(null);
       }
@@ -262,7 +265,7 @@ function AquilaProvider({ children }) {
 
   const exportDataModule = async (dmc, format = 'xml') => {
     try {
-      const response = await axios.get(`${API}/data-modules/${dmc}/export`, { params: { format }, responseType: 'blob' });
+      const response = await api.get(`/api/data-modules/${dmc}/export`, { params: { format }, responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;

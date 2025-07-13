@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAquila } from '../contexts/AquilaContext';
 import { Settings, Save, Download, Upload, Plus, X, AlertTriangle } from 'lucide-react';
 import YAML from 'yaml';
+import { api } from '../lib/api';
 
 const BREXDesigner = () => {
   const { dataModules, loadDataModules } = useAquila();
@@ -20,8 +21,7 @@ const BREXDesigner = () => {
 
   const loadBREXRules = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`);
-      const settings = await response.json();
+      const { data: settings } = await api.get('/api/settings');
       
       const rules = settings.brex_rules || getDefaultBREXRules();
       setBrexRules(rules);
@@ -36,11 +36,8 @@ const BREXDesigner = () => {
 
   const loadXMLBrexRules = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/brex-xml-rules`);
-      if (response.ok) {
-        const list = await response.json();
-        setXmlRules(list.map(r => ({ ...r, enabled: true })));
-      }
+      const { data: list } = await api.get('/api/brex-xml-rules');
+      setXmlRules(list.map(r => ({ ...r, enabled: true })));
     } catch (error) {
       console.error('Error loading XML BREX rules:', error);
     }
@@ -48,12 +45,9 @@ const BREXDesigner = () => {
 
   const loadDefaultBREXRules = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/brex-default`);
-      if (response.ok) {
-        const rules = await response.json();
-        setBrexRules(rules);
-        setYamlContent(YAML.stringify(rules, { indent: 2 }));
-      }
+      const { data: rules } = await api.get('/api/brex-default');
+      setBrexRules(rules);
+      setYamlContent(YAML.stringify(rules, { indent: 2 }));
     } catch (error) {
       console.error('Error loading default BREX rules:', error);
     }
@@ -110,25 +104,11 @@ const BREXDesigner = () => {
         setBrexRules(rulesToSave);
       }
       
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          brex_rules: rulesToSave
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save BREX rules');
-      }
-      
+      await api.post('/api/settings', { brex_rules: rulesToSave });
+
       // Save XML rule selections
-      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/brex-xml-rules`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled_ids: xmlRules.filter(r => r.enabled).map(r => r.id) })
+      await api.post('/api/brex-xml-rules', {
+        enabled_ids: xmlRules.filter(r => r.enabled).map(r => r.id),
       });
 
       // Validate all data modules with new rules
@@ -148,14 +128,8 @@ const BREXDesigner = () => {
     
     for (const dm of dataModules) {
       try {
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/validate/${dm.dmc}`, {
-          method: 'POST'
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          results[dm.dmc] = result;
-        }
+        const { data: result } = await api.post(`/api/validate/${dm.dmc}`);
+        results[dm.dmc] = result;
       } catch (error) {
         console.error(`Error validating ${dm.dmc}:`, error);
         results[dm.dmc] = { status: 'error', errors: [error.message] };

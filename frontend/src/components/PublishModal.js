@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useAquila } from '../contexts/AquilaContext';
 import { X, Download, Settings, FileText, Image, Package } from 'lucide-react';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+import { api } from '../lib/api';
 const PublishModal = ({ onClose, pmCode }) => {
   const { dataModules, icns } = useAquila();
   const [publishConfig, setPublishConfig] = useState({
@@ -24,23 +23,14 @@ const PublishModal = ({ onClose, pmCode }) => {
     setPublishResult(null);
 
     try {
-      const response = await fetch(
-        `${BACKEND_URL}/api/publication-modules/${pmCode}/publish`,
+      const { data } = await api.post(
+        `/api/publication-modules/${pmCode}/publish`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            formats: publishConfig.formats,
-            variants: publishConfig.variants
-          })
+          formats: publishConfig.formats,
+          variants: publishConfig.variants,
         }
       );
-
-      if (!response.ok) {
-        throw new Error(`Server error ${response.status}`);
-      }
-      const result = await response.json();
-      setPublishResult({ success: true, ...result });
+      setPublishResult({ success: true, ...data });
     } catch (error) {
       console.error('Error publishing:', error);
       setPublishResult({ success: false, error: error.message });
