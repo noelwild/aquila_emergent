@@ -3,7 +3,7 @@ import { useAquila } from '../contexts/AquilaContext';
 import { FileText, AlertCircle, CheckCircle, Clock, Settings } from 'lucide-react';
 
 const DataModuleViewer = ({ dataModule, variant }) => {
-  const { updateDataModule } = useAquila();
+  const { updateDataModule, locked } = useAquila();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
 
@@ -87,6 +87,7 @@ const DataModuleViewer = ({ dataModule, variant }) => {
           <button
             onClick={() => setIsEditing(!isEditing)}
             className="aquila-button-secondary text-xs px-2 py-1"
+            disabled={locked}
           >
             {isEditing ? 'Cancel' : 'Edit'}
           </button>
@@ -94,6 +95,7 @@ const DataModuleViewer = ({ dataModule, variant }) => {
             <button
               onClick={handleSave}
               className="aquila-button text-xs px-2 py-1"
+              disabled={locked}
             >
               Save
             </button>
@@ -109,6 +111,7 @@ const DataModuleViewer = ({ dataModule, variant }) => {
             onChange={(e) => setEditedContent(e.target.value)}
             className="w-full h-full bg-aquila-bg border border-aquila-border rounded p-2 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-aquila-cyan"
             placeholder="Enter data module content..."
+            disabled={locked}
           />
         ) : (
           <div className="space-y-4">
