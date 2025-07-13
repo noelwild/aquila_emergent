@@ -525,7 +525,7 @@ async def get_document(document_id: str):
 
 
 @api_router.post("/documents/{document_id}/process")
-async def process_document(document_id: str):
+async def process_document(document_id: str, current_user: User = Depends(get_current_active_user)):
     """Process a document to create data modules."""
     try:
         # Get document
@@ -557,8 +557,11 @@ async def process_document(document_id: str):
         # Store data modules in database
         stored_modules = []
         for dm in data_modules:
+            entry = {"action": "create", "dmc": dm.dmc, "source_file": document.filename, "user": current_user.username, "author": "ai"}
+            dm.audit_log.append(entry)
             await db.data_modules.insert_one(dm.dict())
             stored_modules.append(dm)
+            await document_service.audit_service.log(entry)
 
         await document_service.refresh_cross_references()
 
@@ -631,7 +634,7 @@ async def export_data_module(dmc: str, format: str = "xml"):
 
 
 @api_router.put("/data-modules/{dmc}")
-async def update_data_module(dmc: str, module_data: Dict[str, Any]):
+async def update_data_module(dmc: str, module_data: Dict[str, Any], current_user: User = Depends(get_current_active_user)):
     """Update a data module."""
     try:
         # Update module in database
@@ -641,6 +644,9 @@ async def update_data_module(dmc: str, module_data: Dict[str, Any]):
 
         if result.matched_count == 0:
             raise HTTPException(404, "Data module not found")
+        entry = {"action": "update", "dmc": dmc, "user": current_user.username, "changes": module_data}
+        await db.data_modules.update_one({"dmc": dmc}, {"$push": {"audit_log": entry}})
+        await document_service.audit_service.log(entry)
 
         return {"message": "Data module updated successfully"}
     except Exception as e:

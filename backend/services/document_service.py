@@ -35,6 +35,7 @@ from ..models.document import (
 from ..models.base import DMTypeEnum, SettingsModel, StructureType, SecurityLevel
 from ..ai_providers.provider_factory import ProviderFactory
 from ..ai_providers.base import TextProcessingRequest, VisionProcessingRequest
+from ..services.audit import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,7 @@ class DocumentService:
         backend_root = Path(__file__).resolve().parent.parent
         self.templates_path = backend_root / "templates"
         self.schema_path = backend_root / "schemas" / "simple_data_module.xsd"
+        self.audit_service = AuditService(self.upload_path / "audit.log")
 
     async def load_settings(self) -> Any:
         """Load settings from the database if available."""

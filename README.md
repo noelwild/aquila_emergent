@@ -10,6 +10,7 @@ Aquila follows the S1000D specification for data and publication modules, enabli
 
 - **Document Management** – upload PDFs or images and extract text and illustrations
 - **AI Processing** – classify documents, extract structured data, rewrite content to Simplified Technical English and generate captions/objects from images
+- **Audit Logging** – maintain an audit.json file with the source of each data module and all edits
 - **Data Modules** – create, edit and validate S1000D data modules with STE scoring
 - **Illustrations** – manage ICNs with captioning, object detection and hotspot suggestions
 - **Publication Modules** – drag-and-drop builder with export options (XML, HTML, PDF)

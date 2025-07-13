@@ -70,6 +70,8 @@ class DataModule(BaseDocument):
     # Processing
     processing_status: str = "pending"
     processing_logs: List[Dict[str, Any]] = []
+    audit_log: List[Dict[str, Any]] = []
+
 
 
 class ProcessingTask(BaseDocument):
