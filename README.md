@@ -135,7 +135,7 @@ and OCR correctly:
 Finally, start the backend and frontend servers in separate terminals:
 
 ```bash
-uvicorn backend.server:app --reload
+uvicorn backend.server:app --reload --port 8001
 cd frontend
 yarn start
 ```

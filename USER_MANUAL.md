@@ -18,7 +18,7 @@ This manual provides step-by-step instructions for using every major feature of 
 3. Copy `.env.example` in `backend/` to `.env` and supply API keys and model names. The system works with OpenAI, Anthropic, or local Hugging Face models.
 4. Start the services in separate terminals:
    ```bash
-   uvicorn backend.server:app --reload
+   uvicorn backend.server:app --reload --port 8001
    cd frontend && yarn start
    ```
    The UI opens at `http://localhost:3000` and connects to the backend on port `8001`.
