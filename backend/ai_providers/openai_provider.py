@@ -161,13 +161,51 @@ class OpenAITextProvider(TextProvider):
                 temperature=0.1,
                 max_tokens=1500
             )
-            
+
             result = json.loads(response.choices[0].message.content)
             processing_time = time.time() - start_time
             
             return TextProcessingResponse(
                 result=result,
                 confidence=result.get("ste_score", 0.0),
+                processing_time=processing_time,
+                provider="openai",
+                model_used=self.model
+            )
+        except Exception as e:
+            return TextProcessingResponse(
+                result={"error": str(e)},
+                confidence=0.0,
+                processing_time=time.time() - start_time,
+                provider="openai",
+                model_used=self.model
+            )
+
+    async def review_module(self, request: TextProcessingRequest) -> TextProcessingResponse:
+        """Review text for grammar, STE compliance and logical consistency."""
+        start_time = time.time()
+
+        prompt = f"""
+        Review the following S1000D data module content for grammar, clarity and STE compliance.
+        Provide JSON as {{"issues": ["issue1", "issue2"], "suggested_text": "corrected text"}}.
+
+        Content:\n{request.text}
+        """
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=1500
+            )
+
+            result = json.loads(response.choices[0].message.content)
+            processing_time = time.time() - start_time
+
+            return TextProcessingResponse(
+                result=result,
+                confidence=1.0,
                 processing_time=processing_time,
                 provider="openai",
                 model_used=self.model
