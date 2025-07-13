@@ -16,7 +16,14 @@ import {
 
 const Toolbar = () => {
   const navigate = useNavigate();
-  const { uploadDocument } = useAquila();
+  const {
+    uploadDocument,
+    deleteDataModule,
+    exportDataModule,
+    currentDataModule,
+    locked,
+    setLocked
+  } = useAquila();
   const [processing, setProcessing] = useState(false);
   const [globalLEDStatus, setGlobalLEDStatus] = useState('green');
   const [showAIProviderModal, setShowAIProviderModal] = useState(false);
@@ -30,16 +37,32 @@ const Toolbar = () => {
     event.target.value = '';
   };
 
-  const handleDelete = () => {
-    /* TODO: implement delete action */
+  const handleDelete = async () => {
+    if (!currentDataModule) return;
+    setProcessing(true);
+    try {
+      await deleteDataModule(currentDataModule.dmc);
+    } catch (error) {
+      console.error('Delete failed:', error);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleLock = () => {
-    /* TODO: implement lock action */
+    setLocked(!locked);
   };
 
-  const handleDownload = () => {
-    /* TODO: implement download action */
+  const handleDownload = async () => {
+    if (!currentDataModule) return;
+    setProcessing(true);
+    try {
+      await exportDataModule(currentDataModule.dmc, 'xml');
+    } catch (error) {
+      console.error('Download failed:', error);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const getLEDClassName = (status) => {

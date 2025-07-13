@@ -124,6 +124,7 @@ function AquilaProvider({ children }) {
     textModel: 'gpt-4o-mini',
     visionModel: 'gpt-4o-mini'
   });
+  const [locked, setLocked] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -246,6 +247,36 @@ function AquilaProvider({ children }) {
     }
   };
 
+  const deleteDataModule = async (dmc) => {
+    try {
+      await axios.delete(`${API}/data-modules/${dmc}`);
+      if (currentDataModule?.dmc === dmc) {
+        setCurrentDataModule(null);
+      }
+      await loadDataModules();
+    } catch (error) {
+      console.error('Error deleting data module:', error);
+      throw error;
+    }
+  };
+
+  const exportDataModule = async (dmc, format = 'xml') => {
+    try {
+      const response = await axios.get(`${API}/data-modules/${dmc}/export`, { params: { format }, responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${dmc}.${format}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting data module:', error);
+      throw error;
+    }
+  };
+
   const contextValue = {
     // State
     currentDocument,
@@ -258,16 +289,20 @@ function AquilaProvider({ children }) {
     showPublishModal,
     processing,
     aiProviders,
-    
+    locked,
+
     // Actions
     setCurrentDocument,
     setCurrentDataModule,
     setShowAIProviderModal,
     setShowPublishModal,
+    setLocked,
     uploadDocument,
     processDocument,
     updateDataModule,
     updateAIProviders,
+    deleteDataModule,
+    exportDataModule,
     loadDataModules,
     loadDocuments,
     loadICNs
