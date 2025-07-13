@@ -16,7 +16,8 @@ This manual provides step-by-step instructions for using every major feature of 
    cd ..
    ```
 3. Copy `.env.example` in both `backend/` and `frontend/` to `.env` and supply API keys and model names. The system works with OpenAI, Anthropic, or local Hugging Face models.
-4. Start the services in separate terminals:
+4. If you change values in `frontend/.env` while `yarn start` is running, restart the command (or use `npm start`) so the updated variables load.
+5. Start the services in separate terminals:
    ```bash
    uvicorn backend.server:app --reload --port 8001
    cd frontend && yarn start

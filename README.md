@@ -124,6 +124,10 @@ cp frontend/.env.example frontend/.env
 # Set `ALLOWED_ORIGINS` to a comma-separated list of allowed origins for CORS.
 ```
 
+> **Note:** If you change values in `frontend/.env` while the React development
+> server is running, restart it with `yarn start` (or `npm start`) so the new
+> variables are applied.
+
 The `.env` file now also supports `TEXT_MODEL` and `VISION_MODEL` variables to specify the local model paths.
 
 ### Required System Packages
