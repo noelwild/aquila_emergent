@@ -1,4 +1,6 @@
 # Aquila S1000D-AI
+**Version 1.0.0 (July 2025)**
+
 
 ## Introduction
 Aquila S1000D-AI is an experimental platform that demonstrates how artificial intelligence can streamline the production of technical manuals in S1000D format. The project originated as a proof of concept for processing legacy maintenance documents by combining computer vision, natural language processing, and an interactive authoring interface. Today it has grown into a full stack prototype covering document ingestion, analysis, editing, and publishing. By integrating AI services from OpenAI and Anthropic alongside local models, the system showcases how modern language and vision models can assist with complex aerospace documentation tasks. While many features remain in an early research stage, the repository now contains a fully runnable backend API and a front-end web interface that together offer a glimpse into the future of automated technical writing.
@@ -10,7 +12,7 @@ Aquila follows the S1000D specification for data and publication modules, enabli
 
 - **Document Management** – upload PDFs or images and extract text and illustrations
 - **AI Processing** – classify documents, extract structured data, rewrite content to Simplified Technical English and generate captions/objects from images
-- **Audit Logging** – maintain an audit.json file with the source of each data module and all edits
+- **Audit Logging** – maintain an audit.log file with the source of each data module and all edits
 - **Data Modules** – create, edit and validate S1000D data modules with STE scoring
 - **Illustrations** – manage ICNs with captioning, object detection and hotspot suggestions
 - **Publication Modules** – drag-and-drop builder with export options (XML, HTML, PDF)
@@ -18,6 +20,7 @@ Aquila follows the S1000D specification for data and publication modules, enabli
 - **Authentication** – register users and secure API access with JWT tokens
 - **Module Validation** – verify data modules against BREX and XSD rules
 - **BREX Rules API** – download the built-in rule set or store custom rules
+- **BREX Correction** – automatically suggest fixes for validation errors using AI
 - **Provider Testing** – endpoints to test text and vision models
 - **Data Export** – download XML or PDF packages directly from the API
 
