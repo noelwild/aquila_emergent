@@ -15,7 +15,7 @@ This manual provides step-by-step instructions for using every major feature of 
    yarn install
    cd ..
    ```
-3. Copy `.env.example` in `backend/` to `.env` and supply API keys and model names. The system works with OpenAI, Anthropic, or local Hugging Face models.
+3. Copy `.env.example` in both `backend/` and `frontend/` to `.env` and supply API keys and model names. The system works with OpenAI, Anthropic, or local Hugging Face models.
 4. Start the services in separate terminals:
    ```bash
    uvicorn backend.server:app --reload --port 8001
