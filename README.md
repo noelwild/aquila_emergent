@@ -105,10 +105,12 @@ yarn install
 cd ..
 ```
 
-Copy the sample environment file and supply your own API keys:
+Copy the sample environment files and supply your own API keys:
 
 ```bash
 cp backend/.env.example backend/.env
+# Set up the frontend to connect to the backend
+cp frontend/.env.example frontend/.env
 # Edit `backend/.env` and provide values for `OPENAI_API_KEY`,
 # `ANTHROPIC_API_KEY`, `STRIPE_API_KEY` (optional) and any database
 # settings like `MONGO_URL`. Set `TEXT_MODEL` and
