@@ -6,6 +6,7 @@ import YAML from 'yaml';
 const BREXDesigner = () => {
   const { dataModules, loadDataModules } = useAquila();
   const [brexRules, setBrexRules] = useState({});
+  const [xmlRules, setXmlRules] = useState([]);
   const [yamlContent, setYamlContent] = useState('');
   const [isEditingYaml, setIsEditingYaml] = useState(false);
   const [validationResults, setValidationResults] = useState({});
@@ -14,6 +15,7 @@ const BREXDesigner = () => {
 
   useEffect(() => {
     loadBREXRules();
+    loadXMLBrexRules();
   }, []);
 
   const loadBREXRules = async () => {
@@ -29,6 +31,18 @@ const BREXDesigner = () => {
       const defaultRules = getDefaultBREXRules();
       setBrexRules(defaultRules);
       setYamlContent(YAML.stringify(defaultRules, { indent: 2 }));
+    }
+  };
+
+  const loadXMLBrexRules = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/brex-xml-rules`);
+      if (response.ok) {
+        const list = await response.json();
+        setXmlRules(list.map(r => ({ ...r, enabled: true })));
+      }
+    } catch (error) {
+      console.error('Error loading XML BREX rules:', error);
     }
   };
 
@@ -110,6 +124,13 @@ const BREXDesigner = () => {
         throw new Error('Failed to save BREX rules');
       }
       
+      // Save XML rule selections
+      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/brex-xml-rules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled_ids: xmlRules.filter(r => r.enabled).map(r => r.id) })
+      });
+
       // Validate all data modules with new rules
       await validateAllDataModules();
       
@@ -160,6 +181,10 @@ const BREXDesigner = () => {
     current[keys[keys.length - 1]] = value;
     setBrexRules(newRules);
     setYamlContent(YAML.stringify(newRules, { indent: 2 }));
+  };
+
+  const toggleXMLRule = (id, value) => {
+    setXmlRules(xmlRules.map(r => r.id === id ? { ...r, enabled: value } : r));
   };
 
   const exportRules = () => {
@@ -415,11 +440,29 @@ const BREXDesigner = () => {
                         className="w-4 h-4 text-aquila-cyan bg-aquila-bg border-aquila-border rounded focus:ring-aquila-cyan"
                       />
                     </div>
-                  </div>
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* XML BREX Rules */}
+              <div className="aquila-card">
+                <h3 className="text-lg font-semibold mb-4">XML BREX Rules</h3>
+                <div className="max-h-60 overflow-auto space-y-1">
+                  {xmlRules.map((r) => (
+                    <label key={r.id} className="flex items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={r.enabled}
+                        onChange={(e) => toggleXMLRule(r.id, e.target.checked)}
+                        className="mt-1 w-4 h-4 text-aquila-cyan bg-aquila-bg border-aquila-border rounded focus:ring-aquila-cyan"
+                      />
+                      <span>{r.id}: {r.text}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
           {/* Validation Results */}
           <div className="aquila-card">

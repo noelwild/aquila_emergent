@@ -1,12 +1,107 @@
 [
   {
-    "id": "BREX-DMC-001",
-    "xpath": "//dmc[not(starts-with(text(),'DMC-'))]",
-    "message": "DMC must start with 'DMC-'"
+    "id": "BREX-S1-00001",
+    "ruleType": "firm",
+    "text": "A DMRL must not contain comments or other data management lists (Chap 4.5, Para 2.1).",
+    "contextXPath": "//dml[(descendant-or-self::dmlIdent[child::dmlCode[attribute::dmlType!=\"s\"]]) and ((descendant-or-self::dmlEntry[child::dmlRef]) or (descendant-or-self::dmlEntry[child::commentRef]))]",
+    "constraint": "Not allowed",
+    "enumTable": null
   },
   {
-    "id": "BREX-TITLE-001",
-    "xpath": "//title[normalize-space(.)='']",
-    "message": "Title is required"
+    "id": "BREX-S1-00002",
+    "ruleType": "firm",
+    "text": "The DMRL must contain the titles and details of the responsible partner company for each of the data modules and publication modules - with some exceptions (Chap 4.5, Para 2.1).",
+    "contextXPath": "//dmlEntry",
+    "constraint": "As defined in S1000D",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00003",
+    "ruleType": "firm",
+    "text": "The DMRL does not contain the issue information of its contained objects, unless under certain circumstances (Chap 4.5, Para 2.1).",
+    "contextXPath": "//dmlEntry",
+    "constraint": "As defined in S1000D",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00004",
+    "ruleType": "firm",
+    "text": "The CSL must contain the issue numbers of the CSDB objects it contains (Chap 4.5, Para 3.1).",
+    "contextXPath": "//dml[descendant-or-self::dmlAddress[descendant-or-self::dmlIdent[child::dmlCode[attribute::dmlType=\"s\"]]] and descendant-or-self::dmlEntry[(descendant-or-self::dmRefIdent[not(child::issueInfo)] or descendant-or-self::pmRefIdent[not(child::issueInfo)] or descendant-or-self::dmlRefIdent[not(child::issueInfo)])]]",
+    "constraint": "Not allowed",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00005",
+    "ruleType": "firm",
+    "text": "A new data module list must not have an issue number exceeding 001 (Chap 4.5, Para 4.1.1.2)",
+    "contextXPath": "//dml[descendant-or-self::dmlStatus[attribute::issueType = \"new\"] and descendant-or-self::dmlAddress[descendant-or-self::issueInfo[attribute::issueNumber != \"000\" and attribute::issueNumber != \"001\"]]]",
+    "constraint": "Not allowed",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00006",
+    "ruleType": "narrative",
+    "text": "References in a CSDB status list must only refer to other CSDB status list.(Chap 4.5, Para 4.1.2.1).",
+    "contextXPath": "//dml[descendant-or-self::dmlAddress[descendant-or-self::dmlCode[attribute::dmlType=\"s\"]] and descendant-or-self::dmlStatus[child::dmlRef[child::dmlRefIdent[child::dmlCode[attribute::dmlType != \"s\"]]]]]",
+    "constraint": "Not allowed",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00007",
+    "ruleType": "firm",
+    "text": "The element answer must not be used in a CSL (Chap 4.5, Para 4.2.4).",
+    "contextXPath": "//dml[descendant-or-self::dmlIdent[child::dmlCode[attribute::dmlType=\"s\"]] and descendant-or-self::dmlEntry[child::answer]]",
+    "constraint": "Not allowed",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00008",
+    "ruleType": "firm",
+    "text": "When used (in a DMRL), the element answer must only be used for data module entries (Chap 4.5, Para 4.2.4).",
+    "contextXPath": "//dml[descendant-or-self::dmlIdent[child::dmlCode[attribute::dmlType!=\"s\"]] and descendant-or-self::dmlEntry[child::answer and (child::pmRef or child::infoEntityRef or child::dmlRef or child::commentRef)]]",
+    "constraint": "Not allowed",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00009",
+    "ruleType": "firm",
+    "text": "The sequential number in the DML identity should start at 00001 (Chap 4.5, Para 5.1 and Para 5.2).",
+    "contextXPath": "//dmlCode/@seqNumber",
+    "constraint": "As defined in S1000D",
+    "enumTable": null
+  }
+,
+  {
+    "id": "BREX-S1-00010",
+    "ruleType": "narrative",
+    "text": "The sequential number in the Comment identity should start at 00001 (Chap 4.6.1, Para 2.1.1.1.4).",
+    "contextXPath": "//commentCode/@seqNumber",
+    "constraint": "As defined in S1000D",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00011",
+    "ruleType": "firm",
+    "text": "For a comment related to a data module instance identified by the use of the data module code extension, the reference must include the element identExtension contained in element dmRef within this block of references. (Chap 4.6.1, Para 2.2.3).",
+    "contextXPath": "//commentRefs",
+    "constraint": "As defined in S1000D",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00012",
+    "ruleType": "firm",
+    "text": "The entity control number given in a DDN must not include the prefix ICN- (Chap 4.4, Para 2).",
+    "contextXPath": "//ddn[descendant-or-self::entityControlNumber[contains((.),\"ICN-\")]]",
+    "constraint": "Not allowed",
+    "enumTable": null
+  },
+  {
+    "id": "BREX-S1-00013",
+    "ruleType": "firm",
+    "text": "No change markers must appear in a publication module if the issue type is not changed (Chap 3.9.5.2.1.1, Para 2.1.1).",
+    "contextXPath": "//*[attribute::changeMark = \"1\" and ancestor::pm[child::identAndStatusSection[child::pmStatus[attribute::issueType != \"changed\" and attribute::issueType != \"rinstate-changed\"]]]]",
+    "constraint": "Not allowed",
+    "enumTable": null
   }
 ]
