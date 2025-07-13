@@ -377,10 +377,34 @@ frontend:
         agent: "main"
         comment: "Complete publish interface with variant/format selection, scope options, and package generation"
 
+  - task: "Project Selection Modal"
+    implemented: true
+    working: true
+    file: "frontend/src/components/ProjectModal.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Allows creating new projects and selecting existing ones"
+
+  - task: "Upload Confirmation and Start Button"
+    implemented: true
+    working: true
+    file: "frontend/src/components/Toolbar.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added upload success alerts and a Start button disabled until BREX rules are set"
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 4
+  test_sequence: 5
   run_ui: true
 
 test_plan:
@@ -389,6 +413,8 @@ test_plan:
     - "AI Provider Integration Testing"
     - "Frontend UI Testing"
     - "End-to-End Document Processing"
+    - "Project Selection Modal"
+    - "Upload Confirmation and Start Button"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
@@ -462,5 +488,7 @@ agent_communication:
     message: "Implemented DOCX text extraction with python-docx and PDF image extraction with pdf2image; added unit tests."
   - agent: "main"
     message: "Added XML export template, XSD validation and configurable DMC generation."
-- agent: "main"
-  message: "Added automatic hotspot sync for ICN updates."
+  - agent: "main"
+    message: "Added automatic hotspot sync for ICN updates."
+  - agent: "main"
+    message: "Added project selection modal and start button with BREX rule check"

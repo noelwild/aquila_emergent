@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAquila } from '../contexts/AquilaContext';
-import { 
-  Upload, 
-  Trash2, 
-  Lock, 
-  Settings, 
-  Image, 
-  Grid, 
-  FileText, 
-  Cpu, 
+import {
+  Upload,
+  Trash2,
+  Lock,
+  Settings,
+  Image,
+  Grid,
+  FileText,
+  Cpu,
   Download,
-  Send
+  Send,
+  FolderPlus,
+  Play
 } from 'lucide-react';
+import ProjectModal from './ProjectModal';
 
 const Toolbar = () => {
   const navigate = useNavigate();
@@ -22,17 +25,26 @@ const Toolbar = () => {
     exportDataModule,
     currentDataModule,
     locked,
-    setLocked
+    setLocked,
+    documents,
+    processDocument,
+    brexReady,
+    projectName,
+    createProject,
+    selectProject,
+    getProjectList
   } = useAquila();
   const [processing, setProcessing] = useState(false);
   const [globalLEDStatus, setGlobalLEDStatus] = useState('green');
   const [showAIProviderModal, setShowAIProviderModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
 
   const handleUpload = async (event) => {
     const files = Array.from(event.target.files);
     for (const file of files) {
       await uploadDocument(file);
+      alert(`${file.name} uploaded successfully`);
     }
     event.target.value = '';
   };
@@ -65,6 +77,19 @@ const Toolbar = () => {
     }
   };
 
+  const handleStartProcessing = async () => {
+    setProcessing(true);
+    try {
+      for (const doc of documents) {
+        await processDocument(doc.id);
+      }
+    } catch (error) {
+      console.error('Processing failed:', error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const getLEDClassName = (status) => {
     switch (status) {
       case 'green': return 'aquila-led-green';
@@ -76,6 +101,7 @@ const Toolbar = () => {
   };
 
   return (
+    <>
     <div className="aquila-toolbar">
       <div className="flex items-center gap-4">
         {/* Logo/Brand */}
@@ -84,10 +110,19 @@ const Toolbar = () => {
             <span className="text-white font-bold text-sm">A</span>
           </div>
           <span className="text-xl font-bold text-aquila-cyan">Aquila S1000D-AI</span>
+          <span className="text-sm text-aquila-text-muted ml-2">{projectName}</span>
         </div>
 
         {/* Main Actions */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowProjectModal(true)}
+            className="aquila-button-secondary"
+          >
+            <FolderPlus size={16} />
+            <span>Project</span>
+          </button>
+
           <label className="aquila-button cursor-pointer">
             <Upload size={16} />
             <span>Upload</span>
@@ -157,7 +192,16 @@ const Toolbar = () => {
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-4">
-        <button 
+        <button
+          onClick={handleStartProcessing}
+          className="aquila-button"
+          disabled={processing || !brexReady || documents.length === 0}
+        >
+          <Play size={16} />
+          <span>Start</span>
+        </button>
+
+        <button
           onClick={() => setShowAIProviderModal(true)}
           className="aquila-button-secondary"
         >
@@ -192,6 +236,10 @@ const Toolbar = () => {
         </div>
       </div>
     </div>
+    {showProjectModal && (
+      <ProjectModal onClose={() => setShowProjectModal(false)} />
+    )}
+    </>
   );
 };
 
