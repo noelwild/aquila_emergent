@@ -1,49 +1,57 @@
 """Main FastAPI server for Aquila S1000D-AI system."""
 
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Depends
+import base64
+import io
+import json
+import logging
+import os
+import re
+import uuid
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import yaml
+from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
-from typing import List, Dict, Any, Optional, Tuple
-from pathlib import Path
-import os
-import logging
-import uuid
-import json
-import base64
-import io
-from datetime import datetime, timedelta
-import re
-import yaml
 from jose import JWTError, jwt
+from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
 
-from .models.user import User
-from .services.auth import (
-    get_password_hash,
-    verify_password,
-    authenticate_user,
-    create_access_token,
-)
+from .ai_providers.provider_factory import ProviderFactory
+from .brex_rules import apply_brex_rules
 
 # Import models
-from .models.base import SettingsModel, ProviderEnum, ValidationStatus, SecurityLevel
-from .models.document import UploadedDocument, ICN, DataModule, ProcessingTask, PublicationModule
+from .models.base import ProviderEnum, SecurityLevel, SettingsModel, ValidationStatus
+from .models.document import (
+    ICN,
+    DataModule,
+    ProcessingTask,
+    PublicationModule,
+    UploadedDocument,
+)
+from .models.user import User
+from .services.auth import (
+    authenticate_user,
+    create_access_token,
+    get_password_hash,
+    verify_password,
+)
 
 # Import services
 from .services.document_service import DocumentService
-from .ai_providers.provider_factory import ProviderFactory
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[os.environ["DB_NAME"]]
 
 # Auth configuration
 SECRET_KEY = os.environ.get("SECRET_KEY")
@@ -61,14 +69,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 app = FastAPI(
     title="Aquila S1000D-AI API",
     description="AI-powered technical documentation processing system",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS.split(','),
+    allow_origins=ALLOWED_ORIGINS.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,8 +84,7 @@ app.add_middleware(
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -89,16 +96,25 @@ if DEFAULT_BREX_RULES_PATH.exists():
 else:
     DEFAULT_BREX_RULES = {}
 
+# Load S1000D BREX rule set for XML validation
+S1000D_BREX_PATH = ROOT_DIR / "s1000d_brex_rules.json"
+if S1000D_BREX_PATH.exists():
+    with open(S1000D_BREX_PATH, "r") as f:
+        S1000D_BREX_RULES: List[Dict[str, Any]] = json.load(f)
+else:
+    S1000D_BREX_RULES = []
+
 # Initialize document service (settings loaded later)
 document_service = DocumentService(db=db)
 
 # Cached settings loaded from the database
 system_settings: SettingsModel | None = None
 
+
 @app.on_event("startup")
 async def init_settings():
     """Ensure a settings document exists and cache it."""
-    global system_settings
+    global system_settings, S1000D_BREX_RULES
     doc = await db.settings.find_one({})
     if not doc:
         system_settings = SettingsModel(brex_rules=DEFAULT_BREX_RULES)
@@ -106,6 +122,10 @@ async def init_settings():
     else:
         system_settings = SettingsModel(**doc)
     document_service.settings = system_settings
+
+    # Allow overriding the XML BREX rules from settings
+    if isinstance(system_settings.brex_rules, list):
+        S1000D_BREX_RULES = system_settings.brex_rules
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
@@ -128,7 +148,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     return User(**user_data)
 
 
-async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+async def get_current_active_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
@@ -139,6 +161,7 @@ def require_role(required: str):
         if required not in current_user.roles:
             raise HTTPException(status_code=403, detail="Insufficient privileges")
         return current_user
+
     return _require
 
 
@@ -190,7 +213,11 @@ def validate_module_dict(
     if title_rules.get("required") and not title:
         errors.append("Title is required")
         status = ValidationStatus.RED
-    if title and title_rules.get("maxLength") and len(title) > int(title_rules["maxLength"]):
+    if (
+        title
+        and title_rules.get("maxLength")
+        and len(title) > int(title_rules["maxLength"])
+    ):
         errors.append("Title exceeds maximum length")
         status = ValidationStatus.RED
     pattern = title_rules.get("pattern")
@@ -213,10 +240,18 @@ def validate_module_dict(
     if content_rules.get("required") and not content:
         errors.append("Content is required")
         status = ValidationStatus.RED
-    if content and content_rules.get("minLength") and len(content) < int(content_rules["minLength"]):
+    if (
+        content
+        and content_rules.get("minLength")
+        and len(content) < int(content_rules["minLength"])
+    ):
         errors.append("Content below minimum length")
         status = ValidationStatus.RED
-    if content and content_rules.get("maxLength") and len(content) > int(content_rules["maxLength"]):
+    if (
+        content
+        and content_rules.get("maxLength")
+        and len(content) > int(content_rules["maxLength"])
+    ):
         errors.append("Content exceeds maximum length")
         status = ValidationStatus.RED
 
@@ -224,7 +259,10 @@ def validate_module_dict(
     ste_score = float(module.get("ste_score", 0))
     if ste_score < float(ste_rules.get("minScore", 0)):
         status = ValidationStatus.RED
-    elif ste_score < float(ste_rules.get("warnBelowScore", 0)) and status == ValidationStatus.GREEN:
+    elif (
+        ste_score < float(ste_rules.get("warnBelowScore", 0))
+        and status == ValidationStatus.GREEN
+    ):
         status = ValidationStatus.AMBER
 
     security_rules = rules.get("security", {})
@@ -244,6 +282,13 @@ def validate_module_dict(
         if not xsd_valid:
             errors.append("XSD validation failed")
             status = ValidationStatus.RED
+
+        # Apply XML BREX rules
+        violations = apply_brex_rules(xml_str, S1000D_BREX_RULES)
+        if violations:
+            errors.extend(violations)
+            status = ValidationStatus.RED
+            brex_valid = False
     except Exception as exc:  # pragma: no cover - best effort
         errors.append(f"XSD validation error: {exc}")
         status = ValidationStatus.RED
@@ -258,14 +303,18 @@ async def async_validate_module_dict(
     """Async wrapper that also checks references and performs AI review."""
     status, errors, brex_valid, xsd_valid = validate_module_dict(module, rules)
 
-    if document_service.db is not None and rules.get("references", {}).get("validateDMRefs"):
+    if document_service.db is not None and rules.get("references", {}).get(
+        "validateDMRefs"
+    ):
         for ref in module.get("dm_refs", []):
             exists = await document_service.db.data_modules.find_one({"dmc": ref})
             if not exists and not rules["references"].get("allowBrokenRefs", False):
                 errors.append(f"Broken data module reference: {ref}")
                 status = ValidationStatus.RED
 
-    if document_service.db is not None and rules.get("references", {}).get("validateICNRefs"):
+    if document_service.db is not None and rules.get("references", {}).get(
+        "validateICNRefs"
+    ):
         for ref in module.get("icn_refs", []):
             exists = await document_service.db.icns.find_one({"lcn": ref})
             if not exists and not rules["references"].get("allowBrokenRefs", False):
@@ -282,7 +331,9 @@ async def async_validate_module_dict(
     brex_valid = status != ValidationStatus.RED and brex_valid
     return status, errors, brex_valid, xsd_valid
 
+
 # API Endpoints
+
 
 @app.get("/api/")
 async def root():
@@ -297,8 +348,9 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "providers": provider_config
+        "providers": provider_config,
     }
+
 
 # Settings endpoints
 @api_router.get("/settings")
@@ -309,10 +361,12 @@ async def get_settings():
         raise HTTPException(500, "Settings not initialized")
     return SettingsModel(**doc).dict()
 
+
 @api_router.get("/brex-default")
 async def get_default_brex_rules():
     """Return the built-in default BREX rules."""
     return DEFAULT_BREX_RULES
+
 
 @api_router.post("/settings")
 async def update_settings(settings: Dict[str, Any]):
@@ -327,7 +381,9 @@ async def update_settings(settings: Dict[str, Any]):
     current.update(settings)
     system_settings = SettingsModel(**current)
     if current_doc:
-        await db.settings.update_one({"id": current_doc["id"]}, {"$set": system_settings.dict()})
+        await db.settings.update_one(
+            {"id": current_doc["id"]}, {"$set": system_settings.dict()}
+        )
     else:
         await db.settings.insert_one(system_settings.dict())
 
@@ -344,7 +400,11 @@ async def update_settings(settings: Dict[str, Any]):
     # Update document service settings
     document_service.settings = system_settings
 
-    return {"message": "Settings updated successfully", "settings": system_settings.dict()}
+    return {
+        "message": "Settings updated successfully",
+        "settings": system_settings.dict(),
+    }
+
 
 # AI Provider endpoints
 @api_router.get("/providers")
@@ -356,10 +416,11 @@ async def get_providers():
             "text": os.environ.get("TEXT_PROVIDER", "openai"),
             "vision": os.environ.get("VISION_PROVIDER", "openai"),
             "text_model": os.environ.get("TEXT_MODEL", ""),
-            "vision_model": os.environ.get("VISION_MODEL", "")
+            "vision_model": os.environ.get("VISION_MODEL", ""),
         },
-        "config": ProviderFactory.validate_provider_config()
+        "config": ProviderFactory.validate_provider_config(),
     }
+
 
 @api_router.post("/providers/set")
 async def set_providers(
@@ -377,7 +438,7 @@ async def set_providers(
             raise HTTPException(400, f"Invalid text provider: {text_provider}")
         if vision_provider not in available["vision"]:
             raise HTTPException(400, f"Invalid vision provider: {vision_provider}")
-        
+
         # Update environment
         os.environ["TEXT_PROVIDER"] = text_provider
         os.environ["VISION_PROVIDER"] = vision_provider
@@ -387,21 +448,24 @@ async def set_providers(
         if vision_model is not None:
             os.environ["VISION_MODEL"] = vision_model
             system_settings.vision_model = vision_model
-        
+
         # Update system settings
         system_settings.text_provider = ProviderEnum(text_provider)
         system_settings.vision_provider = ProviderEnum(vision_provider)
-        await db.settings.update_one({"id": system_settings.id}, {"$set": system_settings.dict()})
-        
+        await db.settings.update_one(
+            {"id": system_settings.id}, {"$set": system_settings.dict()}
+        )
+
         return {
             "message": "Providers updated successfully",
             "text_provider": text_provider,
             "vision_provider": vision_provider,
             "text_model": os.environ.get("TEXT_MODEL", ""),
-            "vision_model": os.environ.get("VISION_MODEL", "")
+            "vision_model": os.environ.get("VISION_MODEL", ""),
         }
     except Exception as e:
         raise HTTPException(500, f"Error updating providers: {str(e)}")
+
 
 # Document upload endpoints
 @api_router.post("/documents/upload")
@@ -413,7 +477,7 @@ async def upload_document(
     try:
         # Read file data
         file_data = await file.read()
-        
+
         # Upload document
         document = await document_service.upload_document(
             file_data=file_data,
@@ -421,19 +485,20 @@ async def upload_document(
             mime_type=file.content_type,
             security_level=security_level,
         )
-        
+
         # Store in database
         await db.documents.insert_one(document.dict())
-        
+
         return {
             "message": "Document uploaded successfully",
             "document_id": document.id,
             "filename": document.filename,
-            "size": document.file_size
+            "size": document.file_size,
         }
     except Exception as e:
         logger.error(f"Error uploading document: {str(e)}")
         raise HTTPException(500, f"Error uploading document: {str(e)}")
+
 
 @api_router.get("/documents")
 async def get_documents():
@@ -444,6 +509,7 @@ async def get_documents():
     except Exception as e:
         logger.error(f"Error fetching documents: {str(e)}")
         raise HTTPException(500, f"Error fetching documents: {str(e)}")
+
 
 @api_router.get("/documents/{document_id}")
 async def get_document(document_id: str):
@@ -457,6 +523,7 @@ async def get_document(document_id: str):
         logger.error(f"Error fetching document: {str(e)}")
         raise HTTPException(500, f"Error fetching document: {str(e)}")
 
+
 @api_router.post("/documents/{document_id}/process")
 async def process_document(document_id: str):
     """Process a document to create data modules."""
@@ -465,15 +532,15 @@ async def process_document(document_id: str):
         doc_data = await db.documents.find_one({"id": document_id})
         if not doc_data:
             raise HTTPException(404, "Document not found")
-        
+
         document = UploadedDocument(**doc_data)
-        
+
         # Extract text content
         text_content = await document_service.extract_text_from_document(document)
-        
+
         # Extract images
         images = await document_service.extract_images_from_document(document)
-        
+
         # Process images with AI
         processed_images = []
         for image in images:
@@ -481,10 +548,12 @@ async def process_document(document_id: str):
             processed_images.append(processed_image)
             # Store ICN in database
             await db.icns.insert_one(processed_image.dict())
-        
+
         # Process document with AI
-        data_modules = await document_service.process_document_with_ai(document, text_content)
-        
+        data_modules = await document_service.process_document_with_ai(
+            document, text_content
+        )
+
         # Store data modules in database
         stored_modules = []
         for dm in data_modules:
@@ -492,23 +561,29 @@ async def process_document(document_id: str):
             stored_modules.append(dm)
 
         await document_service.refresh_cross_references()
-        
+
         # Update document status
         await db.documents.update_one(
             {"id": document_id},
-            {"$set": {"processing_status": "completed", "updated_at": datetime.utcnow()}}
+            {
+                "$set": {
+                    "processing_status": "completed",
+                    "updated_at": datetime.utcnow(),
+                }
+            },
         )
-        
+
         return {
             "message": "Document processed successfully",
             "document_id": document_id,
             "data_modules": len(stored_modules),
             "images": len(processed_images),
-            "modules": [dm.dict() for dm in stored_modules]
+            "modules": [dm.dict() for dm in stored_modules],
         }
     except Exception as e:
         logger.error(f"Error processing document: {str(e)}")
         raise HTTPException(500, f"Error processing document: {str(e)}")
+
 
 # Data Module endpoints
 @api_router.get("/data-modules")
@@ -520,6 +595,7 @@ async def get_data_modules():
     except Exception as e:
         logger.error(f"Error fetching data modules: {str(e)}")
         raise HTTPException(500, f"Error fetching data modules: {str(e)}")
+
 
 @api_router.get("/data-modules/{dmc}")
 async def get_data_module(dmc: str):
@@ -533,6 +609,7 @@ async def get_data_module(dmc: str):
         logger.error(f"Error fetching data module: {str(e)}")
         raise HTTPException(500, f"Error fetching data module: {str(e)}")
 
+
 @api_router.get("/data-modules/{dmc}/export")
 async def export_data_module(dmc: str, format: str = "xml"):
     """Export a data module."""
@@ -543,12 +620,15 @@ async def export_data_module(dmc: str, format: str = "xml"):
         module = DataModule(**module_data)
         if format == "xml":
             xml_str = document_service.render_data_module_xml(module)
-            return StreamingResponse(io.BytesIO(xml_str.encode("utf-8")), media_type="application/xml")
+            return StreamingResponse(
+                io.BytesIO(xml_str.encode("utf-8")), media_type="application/xml"
+            )
         else:
             raise HTTPException(400, "Unsupported format")
     except Exception as e:
         logger.error(f"Error exporting data module: {str(e)}")
         raise HTTPException(500, f"Error exporting data module: {str(e)}")
+
 
 @api_router.put("/data-modules/{dmc}")
 async def update_data_module(dmc: str, module_data: Dict[str, Any]):
@@ -556,17 +636,17 @@ async def update_data_module(dmc: str, module_data: Dict[str, Any]):
     try:
         # Update module in database
         result = await db.data_modules.update_one(
-            {"dmc": dmc},
-            {"$set": {**module_data, "updated_at": datetime.utcnow()}}
+            {"dmc": dmc}, {"$set": {**module_data, "updated_at": datetime.utcnow()}}
         )
-        
+
         if result.matched_count == 0:
             raise HTTPException(404, "Data module not found")
-        
+
         return {"message": "Data module updated successfully"}
     except Exception as e:
         logger.error(f"Error updating data module: {str(e)}")
         raise HTTPException(500, f"Error updating data module: {str(e)}")
+
 
 @api_router.delete("/data-modules/{dmc}")
 async def delete_data_module(dmc: str):
@@ -580,6 +660,7 @@ async def delete_data_module(dmc: str):
         logger.error(f"Error deleting data module: {str(e)}")
         raise HTTPException(500, f"Error deleting data module: {str(e)}")
 
+
 # ICN endpoints
 @api_router.get("/icns")
 async def get_icns():
@@ -590,6 +671,7 @@ async def get_icns():
     except Exception as e:
         logger.error(f"Error fetching ICNs: {str(e)}")
         raise HTTPException(500, f"Error fetching ICNs: {str(e)}")
+
 
 @api_router.get("/icns/{icn_id}")
 async def get_icn(icn_id: str):
@@ -603,6 +685,7 @@ async def get_icn(icn_id: str):
         logger.error(f"Error fetching ICN: {str(e)}")
         raise HTTPException(500, f"Error fetching ICN: {str(e)}")
 
+
 @api_router.get("/icns/{icn_id}/image")
 async def get_icn_image(icn_id: str):
     """Get ICN image file."""
@@ -610,16 +693,15 @@ async def get_icn_image(icn_id: str):
         icn = await db.icns.find_one({"icn_id": icn_id})
         if not icn:
             raise HTTPException(404, "ICN not found")
-        
+
         icn_obj = ICN(**icn)
         return FileResponse(
-            icn_obj.file_path,
-            media_type=icn_obj.mime_type,
-            filename=icn_obj.filename
+            icn_obj.file_path, media_type=icn_obj.mime_type, filename=icn_obj.filename
         )
     except Exception as e:
         logger.error(f"Error fetching ICN image: {str(e)}")
         raise HTTPException(500, f"Error fetching ICN image: {str(e)}")
+
 
 @api_router.put("/icns/{icn_id}")
 async def update_icn(icn_id: str, icn_data: Dict[str, Any]):
@@ -632,8 +714,7 @@ async def update_icn(icn_id: str, icn_data: Dict[str, Any]):
         lcn = icn.get("lcn")
 
         result = await db.icns.update_one(
-            {"icn_id": icn_id},
-            {"$set": {**icn_data, "updated_at": datetime.utcnow()}}
+            {"icn_id": icn_id}, {"$set": {**icn_data, "updated_at": datetime.utcnow()}}
         )
 
         if result.matched_count == 0:
@@ -641,8 +722,7 @@ async def update_icn(icn_id: str, icn_data: Dict[str, Any]):
 
         if lcn:
             await db.data_modules.update_many(
-                {"icn_refs": lcn},
-                {"$set": {"updated_at": datetime.utcnow()}}
+                {"icn_refs": lcn}, {"$set": {"updated_at": datetime.utcnow()}}
             )
 
         await document_service.refresh_cross_references()
@@ -651,6 +731,7 @@ async def update_icn(icn_id: str, icn_data: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Error updating ICN: {str(e)}")
         raise HTTPException(500, f"Error updating ICN: {str(e)}")
+
 
 # Validation endpoints
 @api_router.post("/validate/{dmc}")
@@ -676,13 +757,15 @@ async def validate_data_module(dmc: str):
         # Update module validation status
         await db.data_modules.update_one(
             {"dmc": dmc},
-            {"$set": {
-                "validation_status": validation_status.value,
-                "validation_errors": validation_errors,
-                "xsd_valid": xml_valid,
-                "brex_valid": brex_valid,
-                "updated_at": datetime.utcnow()
-            }}
+            {
+                "$set": {
+                    "validation_status": validation_status.value,
+                    "validation_errors": validation_errors,
+                    "xsd_valid": xml_valid,
+                    "brex_valid": brex_valid,
+                    "updated_at": datetime.utcnow(),
+                }
+            },
         )
 
         return {
@@ -690,7 +773,7 @@ async def validate_data_module(dmc: str):
             "status": validation_status.value,
             "errors": validation_errors,
             "xsd_valid": xml_valid,
-            "brex_valid": brex_valid
+            "brex_valid": brex_valid,
         }
     except Exception as e:
         logger.error(f"Error validating data module: {str(e)}")
@@ -721,6 +804,7 @@ async def fix_data_module(dmc: str, method: str = "ai"):
         logger.error(f"Error fixing data module: {str(e)}")
         raise HTTPException(500, f"Error fixing data module: {str(e)}")
 
+
 # Publication Module endpoints
 @api_router.get("/publication-modules")
 async def get_publication_modules():
@@ -732,16 +816,21 @@ async def get_publication_modules():
         logger.error(f"Error fetching publication modules: {str(e)}")
         raise HTTPException(500, f"Error fetching publication modules: {str(e)}")
 
+
 @api_router.post("/publication-modules")
 async def create_publication_module(pm_data: Dict[str, Any]):
     """Create a new publication module."""
     try:
         pm = PublicationModule(**pm_data)
         await db.publication_modules.insert_one(pm.dict())
-        return {"message": "Publication module created successfully", "pm_code": pm.pm_code}
+        return {
+            "message": "Publication module created successfully",
+            "pm_code": pm.pm_code,
+        }
     except Exception as e:
         logger.error(f"Error creating publication module: {str(e)}")
         raise HTTPException(500, f"Error creating publication module: {str(e)}")
+
 
 @api_router.get("/publication-modules/{pm_code}")
 async def get_publication_module(pm_code: str):
@@ -755,6 +844,7 @@ async def get_publication_module(pm_code: str):
         logger.error(f"Error fetching publication module: {str(e)}")
         raise HTTPException(500, f"Error fetching publication module: {str(e)}")
 
+
 @api_router.post("/publication-modules/{pm_code}/publish")
 async def publish_publication_module(
     pm_code: str,
@@ -766,7 +856,7 @@ async def publish_publication_module(
         pm = await db.publication_modules.find_one({"pm_code": pm_code})
         if not pm:
             raise HTTPException(404, "Publication module not found")
-        
+
         pm_obj = PublicationModule(**pm)
         formats = publish_options.get("formats", ["xml"])
         variants = publish_options.get("variants", ["verbatim"])
@@ -787,16 +877,17 @@ async def publish_publication_module(
         logger.error(f"Error publishing publication module: {str(e)}")
         raise HTTPException(500, f"Error publishing publication module: {str(e)}")
 
+
 # Test endpoints for AI providers
 @api_router.post("/test/text")
 async def test_text_provider(text: str, task_type: str = "classify"):
     """Test text provider."""
     try:
         from .ai_providers.base import TextProcessingRequest
-        
+
         text_provider = ProviderFactory.create_text_provider()
         request = TextProcessingRequest(text=text, task_type=task_type)
-        
+
         if task_type == "classify":
             response = await text_provider.classify_document(request)
         elif task_type == "extract":
@@ -805,21 +896,22 @@ async def test_text_provider(text: str, task_type: str = "classify"):
             response = await text_provider.rewrite_to_ste(request)
         else:
             raise HTTPException(400, "Invalid task type")
-        
+
         return response.dict()
     except Exception as e:
         logger.error(f"Error testing text provider: {str(e)}")
         raise HTTPException(500, f"Error testing text provider: {str(e)}")
+
 
 @api_router.post("/test/vision")
 async def test_vision_provider(image_data: str, task_type: str = "caption"):
     """Test vision provider."""
     try:
         from .ai_providers.base import VisionProcessingRequest
-        
+
         vision_provider = ProviderFactory.create_vision_provider()
         request = VisionProcessingRequest(image_data=image_data, task_type=task_type)
-        
+
         if task_type == "caption":
             response = await vision_provider.generate_caption(request)
         elif task_type == "objects":
@@ -828,15 +920,17 @@ async def test_vision_provider(image_data: str, task_type: str = "caption"):
             response = await vision_provider.generate_hotspots(request)
         else:
             raise HTTPException(400, "Invalid task type")
-        
+
         return response.dict()
     except Exception as e:
         logger.error(f"Error testing vision provider: {str(e)}")
         raise HTTPException(500, f"Error testing vision provider: {str(e)}")
 
+
 # Include the router in the main app
 app.include_router(auth_router)
 app.include_router(api_router)
+
 
 # Shutdown event
 @app.on_event("shutdown")
@@ -844,6 +938,8 @@ async def shutdown_db_client():
     """Close database connection on shutdown."""
     client.close()
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8001)

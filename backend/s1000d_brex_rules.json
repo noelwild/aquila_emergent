@@ -1,0 +1,12 @@
+[
+  {
+    "id": "BREX-DMC-001",
+    "xpath": "//dmc[not(starts-with(text(),'DMC-'))]",
+    "message": "DMC must start with 'DMC-'"
+  },
+  {
+    "id": "BREX-TITLE-001",
+    "xpath": "//title[normalize-space(.)='']",
+    "message": "Title is required"
+  }
+]
