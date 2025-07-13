@@ -41,3 +41,30 @@ test('allows editing and saving content', async () => {
   fireEvent.click(screen.getByText('Save'));
   expect(updateMock).toHaveBeenCalledWith(sampleModule.dmc, expect.any(Object));
 });
+
+test('enforces single selection and applies corrections', async () => {
+  const updateMock = jest.fn().mockResolvedValue({});
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+  const moduleWithErrors = {
+    ...sampleModule,
+    validation_errors: ['Bad title', 'Bad content']
+  };
+
+  renderWithContext(
+    <DataModuleViewer dataModule={moduleWithErrors} variant="verbatim" />,
+    { updateDataModule: updateMock }
+  );
+
+  const fixRadio = screen.getByLabelText('Fix');
+  fireEvent.click(fixRadio);
+  expect(fixRadio.checked).toBe(true);
+
+  const aiRadio = screen.getByLabelText('AI');
+  fireEvent.click(aiRadio);
+  expect(aiRadio.checked).toBe(true);
+  expect(fixRadio.checked).toBe(false);
+
+  fireEvent.click(screen.getByText('Apply Corrections'));
+
+  expect(global.fetch).toHaveBeenCalled();
+});

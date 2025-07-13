@@ -782,7 +782,7 @@ async def validate_data_module(dmc: str):
 
 @api_router.post("/fix-module/{dmc}")
 async def fix_data_module(dmc: str, method: str = "ai"):
-    """Attempt automatic correction of a data module."""
+    """Attempt correction of a data module."""
     try:
         module = await db.data_modules.find_one({"dmc": dmc})
         if not module:
@@ -796,7 +796,9 @@ async def fix_data_module(dmc: str, method: str = "ai"):
             if suggested:
                 dm.content = suggested
             dm.ai_suggestions = review
-            dm.processing_logs.append({"fix": "ai", "issues": issues})
+            dm.processing_logs.append({"fix": "ai", "issues": issues, "timestamp": datetime.utcnow()})
+        elif method == "manual":
+            dm.processing_logs.append({"fix": "manual", "timestamp": datetime.utcnow()})
         await db.data_modules.update_one({"dmc": dmc}, {"$set": dm.dict()})
         await document_service.refresh_cross_references()
         return {"message": "Data module updated", "dmc": dmc}

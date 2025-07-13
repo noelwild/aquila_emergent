@@ -6,6 +6,7 @@ const DataModuleViewer = ({ dataModule, variant }) => {
   const { updateDataModule, locked } = useAquila();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
+  const [correctionSelections, setCorrectionSelections] = useState({});
 
   useEffect(() => {
     if (dataModule) {
@@ -66,6 +67,26 @@ const DataModuleViewer = ({ dataModule, variant }) => {
       default:
         return <CheckCircle size={16} className="text-aquila-led-green" />;
     }
+  };
+
+  const handleSelectionChange = (index, method) => {
+    setCorrectionSelections((prev) => ({ ...prev, [index]: method }));
+  };
+
+  const applyCorrections = async () => {
+    const methods = new Set(Object.values(correctionSelections));
+    for (const method of methods) {
+      try {
+        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/fix-module/${dataModule.dmc}?method=${method}`, {
+          method: 'POST'
+        });
+      } catch (e) {
+        console.error('Error applying corrections:', e);
+      }
+    }
+    setCorrectionSelections({});
+    await updateDataModule(dataModule.dmc, {});
+    alert('Corrections applied');
   };
 
   return (
@@ -133,12 +154,24 @@ const DataModuleViewer = ({ dataModule, variant }) => {
                       <span className="grow">• {error}</span>
                       <div className="flex gap-2">
                         <label className="flex items-center gap-1 text-xs">
-                          <input type="checkbox" name={`fix-${index}`} />
+                          <input
+                            type="radio"
+                            name={`select-${index}`}
+                            value="manual"
+                            checked={correctionSelections[index] === 'manual'}
+                            onChange={() => handleSelectionChange(index, 'manual')}
+                          />
                           <span>Fix</span>
                         </label>
                         {error.toLowerCase().includes('content') && (
                           <label className="flex items-center gap-1 text-xs">
-                            <input type="checkbox" name={`ai-${index}`} />
+                            <input
+                              type="radio"
+                              name={`select-${index}`}
+                              value="ai"
+                              checked={correctionSelections[index] === 'ai'}
+                              onChange={() => handleSelectionChange(index, 'ai')}
+                            />
                             <span>AI</span>
                           </label>
                         )}
@@ -146,6 +179,12 @@ const DataModuleViewer = ({ dataModule, variant }) => {
                     </li>
                   ))}
                 </ul>
+                <button
+                  onClick={applyCorrections}
+                  className="aquila-button mt-3"
+                >
+                  Apply Corrections
+                </button>
               </div>
             )}
             
