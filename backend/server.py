@@ -29,7 +29,7 @@ from .services.auth import (
 )
 
 # Import models
-from .models.base import SettingsModel, ProviderEnum, ValidationStatus
+from .models.base import SettingsModel, ProviderEnum, ValidationStatus, SecurityLevel
 from .models.document import UploadedDocument, ICN, DataModule, ProcessingTask, PublicationModule
 
 # Import services
@@ -374,7 +374,10 @@ async def set_providers(
 
 # Document upload endpoints
 @api_router.post("/documents/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    file: UploadFile = File(...),
+    security_level: SecurityLevel = Form(SecurityLevel.UNCLASSIFIED),
+):
     """Upload a document for processing."""
     try:
         # Read file data
@@ -384,7 +387,8 @@ async def upload_document(file: UploadFile = File(...)):
         document = await document_service.upload_document(
             file_data=file_data,
             filename=file.filename,
-            mime_type=file.content_type
+            mime_type=file.content_type,
+            security_level=security_level,
         )
         
         # Store in database
