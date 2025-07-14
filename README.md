@@ -122,6 +122,8 @@ cp frontend/.env.example frontend/.env
 # The server will refuse to start if this value is not provided. Optionally
 # adjust `ACCESS_TOKEN_EXPIRE_MINUTES`.
 # Set `ALLOWED_ORIGINS` to a comma-separated list of allowed origins for CORS.
+# Each value must be wrapped in quotes with no trailing characters, e.g.
+# `OPENAI_API_KEY="sk-..."`. Malformed lines may cause the keys to be ignored.
 ```
 
 > **Note:** If you change values in `frontend/.env` while the React development

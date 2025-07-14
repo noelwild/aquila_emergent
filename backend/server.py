@@ -50,8 +50,10 @@ ROOT_DIR = Path(__file__).parent
 # ensures the values from the file replace any existing environment variables
 # that may have been defined but left empty by the execution environment. This
 # prevents spurious "<VAR> environment variable not set" errors when a blank
-# variable already exists.
-load_dotenv(ROOT_DIR / ".env", override=True)
+# variable already exists. ``verbose=True`` surfaces any parsing warnings so
+# misformatted lines are easier to diagnose.
+ENV_PATH = ROOT_DIR / ".env"
+load_dotenv(ENV_PATH, override=True, verbose=True)
 
 # MongoDB connection
 mongo_url = os.environ["MONGO_URL"]
