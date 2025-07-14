@@ -46,17 +46,19 @@ from .services.document_service import DocumentService
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
-# Always load environment variables from ``backend/.env``. We search starting
-# from the current working directory so running the server from an installed
-# package still picks up the project's ``backend/.env``. ``override=True``
+
 # ensures the values from the file replace any existing environment variables
 # that may have been defined but left empty by the execution environment. This
 # prevents spurious "<VAR> environment variable not set" errors when a blank
 # variable already exists.
+
 env_path = find_dotenv("backend/.env", usecwd=True)
 if not env_path:
     env_path = ROOT_DIR / ".env"
 load_dotenv(env_path, override=True)
+=======
+load_dotenv(ROOT_DIR / ".env", override=True)
+
 
 # MongoDB connection
 mongo_url = os.environ["MONGO_URL"]
