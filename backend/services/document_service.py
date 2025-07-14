@@ -104,7 +104,7 @@ class DocumentService:
 
     async def load_settings(self) -> Any:
         """Load settings from the database if available."""
-        if self.db:
+        if self.db is not None:
             doc = await self.db.settings.find_one({})
             if doc:
                 self.settings = SettingsModel(**doc)
@@ -317,7 +317,7 @@ class DocumentService:
 
     async def gather_all_documents_text(self, exclude_id: str | None = None) -> str:
         """Concatenate text from all uploaded documents."""
-        if not self.db:
+        if self.db is None:
             return ""
         docs = await self.db.documents.find().to_list(1000)
         texts: list[str] = []
@@ -343,7 +343,7 @@ class DocumentService:
 
     async def refresh_cross_references(self) -> None:
         """Update dm_refs and icn_refs across all modules based on content."""
-        if not self.db:
+        if self.db is None:
             return
         modules = await self.db.data_modules.find().to_list(1000)
         icns = await self.db.icns.find().to_list(1000)
@@ -370,7 +370,7 @@ class DocumentService:
     ) -> List[DataModule]:
         await self.load_settings()
         text_provider = ProviderFactory.create_text_provider()
-        if self.db:
+        if self.db is not None:
             extra_text = await self.gather_all_documents_text(exclude_id=document.id)
             if extra_text:
                 text_content = f"{text_content}\n{extra_text}"[:10000]
