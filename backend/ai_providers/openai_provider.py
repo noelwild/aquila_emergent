@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import openai
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 from .base import (
     TextProcessingRequest,
@@ -21,10 +21,14 @@ from .base import (
 )
 
 # Ensure environment variables are loaded even if the server did not call
-# ``load_dotenv`` for some reason. We use ``override=True`` so that values in
-# ``backend/.env`` replace any existing environment variables that may be empty
-# in the current execution environment.
-load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
+# ``load_dotenv`` for some reason. We look for ``backend/.env`` starting from
+# the current working directory so deployments that run the code from an
+# installed package can still locate the file in the project root. ``override``
+# ensures values from the file replace any empty environment variables.
+env_path = find_dotenv("backend/.env", usecwd=True)
+if not env_path:
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(env_path, override=True)
 
 
 class OpenAITextProvider(TextProvider):
