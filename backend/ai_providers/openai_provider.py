@@ -21,9 +21,10 @@ from .base import (
 )
 
 # Ensure environment variables are loaded even if the server did not call
-# ``load_dotenv`` for some reason. This uses the ``backend/.env`` file relative
-# to this provider module.
-load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
+# ``load_dotenv`` for some reason. We use ``override=True`` so that values in
+# ``backend/.env`` replace any existing environment variables that may be empty
+# in the current execution environment.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=True)
 
 
 class OpenAITextProvider(TextProvider):
